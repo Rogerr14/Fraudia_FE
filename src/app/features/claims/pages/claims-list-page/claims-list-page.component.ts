@@ -1,5 +1,6 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { AppButtonComponent } from '../../../../shared/components/button/app-button.component';
 import { AppCardComponent } from '../../../../shared/components/card/app-card.component';
 import { EmptyStateComponent } from '../../../../shared/components/empty-state/empty-state.component';
@@ -16,6 +17,7 @@ import { ClaimsTableComponent } from '../../components/claims-table/claims-table
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     AppButtonComponent,
     AppCardComponent,
     EmptyStateComponent,
@@ -33,9 +35,12 @@ import { ClaimsTableComponent } from '../../components/claims-table/claims-table
         </div>
       </header>
 
-      <app-card title="Filtros" eyebrow="Búsqueda de casos">
-        <app-claims-filters (filtersChanged)="onFiltersChanged($event)"></app-claims-filters>
-      </app-card>
+      <div class="app-card">
+        <app-claims-filters
+          [total]="result()?.total ?? null"
+          (filtersChanged)="onFiltersChanged($event)"
+        ></app-claims-filters>
+      </div>
 
       <app-loading-spinner *ngIf="loading()" message="Cargando siniestros..."></app-loading-spinner>
 
@@ -52,9 +57,17 @@ import { ClaimsTableComponent } from '../../components/claims-table/claims-table
           (evaluate)="evaluateClaim($event)"
         ></app-claims-table>
 
-        <div class="pagination-bar" *ngIf="claimsResult.totalPages > 1">
+        <div class="pagination-bar">
           <span>Página {{ claimsResult.page }} de {{ claimsResult.totalPages }} · {{ claimsResult.total }} siniestros</span>
-          <div>
+          <label class="pagination-bar__limit">
+            Mostrar
+            <select [(ngModel)]="filters.limit" (ngModelChange)="onLimitChanged()">
+              <option [value]="20">20</option>
+              <option [value]="50">50</option>
+              <option [value]="100">100</option>
+            </select>
+          </label>
+          <div *ngIf="claimsResult.totalPages > 1">
             <app-button label="Anterior" variant="ghost" [disabled]="filters.page === 1" (pressed)="previousPage()"></app-button>
             <app-button label="Siguiente" variant="secondary" [disabled]="filters.page >= claimsResult.totalPages" (pressed)="nextPage()"></app-button>
           </div>
@@ -89,6 +102,11 @@ export class ClaimsListPageComponent implements OnInit {
       ...filters,
       page: 1,
     };
+    this.loadClaims();
+  }
+
+  onLimitChanged(): void {
+    this.filters = { ...this.filters, page: 1 };
     this.loadClaims();
   }
 

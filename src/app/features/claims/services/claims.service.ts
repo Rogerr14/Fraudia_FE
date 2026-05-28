@@ -34,7 +34,7 @@ export class ClaimsService {
     );
 
     const params: QueryParams = {
-      limit: needsClientFiltering ? 200 : limit,
+      limit: needsClientFiltering ? 20 : limit,
       offset: needsClientFiltering ? 0 : (page - 1) * limit,
       risk_level: filters.riskLevel || undefined,
     };
@@ -59,10 +59,29 @@ export class ClaimsService {
     );
   }
 
-  listAllClaims(limit = 200): Observable<Claim[]> {
+  listAllClaims(limit = 20): Observable<Claim[]> {
     return this.http
       .get<ClaimListApiResponse>(API_ENDPOINTS.claims.list, { limit, offset: 0 })
       .pipe(map((response) => response.items.map(mapClaimFromApi)));
+  }
+
+  listClaimsPaginated(page: number, limit: number, riskLevel = ''): Observable<PaginatedResult<Claim>> {
+    return this.http
+      .get<ClaimListApiResponse>(API_ENDPOINTS.claims.list, {
+        limit,
+        offset: (page - 1) * limit,
+        risk_level: riskLevel || undefined,
+      })
+      .pipe(
+        map((res) => ({
+          items: res.items.map(mapClaimFromApi),
+          total: res.total,
+          limit,
+          offset: (page - 1) * limit,
+          page,
+          totalPages: Math.max(1, Math.ceil(res.total / limit)),
+        })),
+      );
   }
 
   getClaimDetail(claimId: string): Observable<ClaimDetail> {

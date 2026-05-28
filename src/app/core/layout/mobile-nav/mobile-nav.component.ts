@@ -32,7 +32,7 @@ export class MobileNavComponent {
     { label: 'Panel', route: APP_ROUTES.dashboard, shortcut: 'D' },
     { label: 'Cargar', route: APP_ROUTES.uploads, shortcut: 'U' },
     { label: 'Casos', route: APP_ROUTES.claims, shortcut: 'S' },
-    { label: 'IA', route: APP_ROUTES.agent, shortcut: 'IA' },
+    { label: 'Reglas', route: APP_ROUTES.rules, shortcut: 'R' },
     { label: 'Reportes', route: APP_ROUTES.reports, shortcut: 'P' },
   ];
 }
