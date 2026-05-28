@@ -2,7 +2,6 @@ import { Component, OnInit, ViewChild, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { AppCardComponent } from '../../../../shared/components/card/app-card.component';
-import { LoadingSpinnerComponent } from '../../../../shared/components/loading-spinner/loading-spinner.component';
 import { AgentInputComponent } from '../../components/agent-input/agent-input.component';
 import { ChatMessageComponent } from '../../components/chat-message/chat-message.component';
 import { SuggestedQuestionsComponent } from '../../components/suggested-questions/suggested-questions.component';
@@ -15,7 +14,6 @@ import { AgentQueryRequest, ChatMessage, SuggestedQuestion } from '../../models/
   imports: [
     CommonModule,
     AppCardComponent,
-    LoadingSpinnerComponent,
     AgentInputComponent,
     ChatMessageComponent,
     SuggestedQuestionsComponent,
@@ -45,7 +43,6 @@ import { AgentQueryRequest, ChatMessage, SuggestedQuestion } from '../../models/
         <div class="chat-window">
           <p *ngIf="messages().length === 0" class="muted-text">Haz una pregunta al agente para comenzar.</p>
           <app-chat-message *ngFor="let message of messages()" [message]="message"></app-chat-message>
-          <app-loading-spinner *ngIf="loadingResponse()" message="El agente está analizando..."></app-loading-spinner>
         </div>
         <p class="disclaimer">{{ disclaimer() }}</p>
         <app-agent-input #agentInput [loading]="loadingResponse()" (questionSubmitted)="sendQuestion($event)"></app-agent-input>

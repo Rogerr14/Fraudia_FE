@@ -1,12 +1,6 @@
 import { Routes } from '@angular/router';
 import { MainLayoutComponent } from './core/layout/main-layout/main-layout.component';
-import { DashboardPageComponent } from './features/dashboard/pages/dashboard-page/dashboard-page.component';
-import { UploadDatasetPageComponent } from './features/uploads/pages/upload-dataset-page/upload-dataset-page.component';
-import { ClaimsListPageComponent } from './features/claims/pages/claims-list-page/claims-list-page.component';
-import { ClaimDetailPageComponent } from './features/claims/pages/claim-detail-page/claim-detail-page.component';
-import { RulesPageComponent } from './features/rules/pages/rules-page/rules-page.component';
-import { AgentChatPageComponent } from './features/agent/pages/agent-chat-page/agent-chat-page.component';
-import { ReportsPageComponent } from './features/reports/pages/reports-page/reports-page.component';
+import { loadingGuard } from './core/guards/loading.guard';
 
 export const routes: Routes = [
   {
@@ -15,31 +9,59 @@ export const routes: Routes = [
     children: [
       {
         path: 'dashboard',
-        component: DashboardPageComponent,
+        loadComponent: () =>
+          import('./features/dashboard/pages/dashboard-page/dashboard-page.component').then(
+            (m) => m.DashboardPageComponent,
+          ),
+        canDeactivate: [loadingGuard],
       },
       {
         path: 'uploads',
-        component: UploadDatasetPageComponent,
+        loadComponent: () =>
+          import('./features/uploads/pages/upload-dataset-page/upload-dataset-page.component').then(
+            (m) => m.UploadDatasetPageComponent,
+          ),
+        canDeactivate: [loadingGuard],
       },
       {
         path: 'claims',
-        component: ClaimsListPageComponent,
+        loadComponent: () =>
+          import('./features/claims/pages/claims-list-page/claims-list-page.component').then(
+            (m) => m.ClaimsListPageComponent,
+          ),
+        canDeactivate: [loadingGuard],
       },
       {
         path: 'claims/:id',
-        component: ClaimDetailPageComponent,
+        loadComponent: () =>
+          import('./features/claims/pages/claim-detail-page/claim-detail-page.component').then(
+            (m) => m.ClaimDetailPageComponent,
+          ),
+        canDeactivate: [loadingGuard],
       },
       {
         path: 'rules',
-        component: RulesPageComponent,
+        loadComponent: () =>
+          import('./features/rules/pages/rules-page/rules-page.component').then(
+            (m) => m.RulesPageComponent,
+          ),
+        canDeactivate: [loadingGuard],
       },
       {
         path: 'agent',
-        component: AgentChatPageComponent,
+        loadComponent: () =>
+          import('./features/agent/pages/agent-chat-page/agent-chat-page.component').then(
+            (m) => m.AgentChatPageComponent,
+          ),
+        canDeactivate: [loadingGuard],
       },
       {
         path: 'reports',
-        component: ReportsPageComponent,
+        loadComponent: () =>
+          import('./features/reports/pages/reports-page/reports-page.component').then(
+            (m) => m.ReportsPageComponent,
+          ),
+        canDeactivate: [loadingGuard],
       },
       {
         path: '',

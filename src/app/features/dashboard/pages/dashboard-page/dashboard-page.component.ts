@@ -1,27 +1,18 @@
 import { Component, OnInit, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { DashboardService } from '../../services/dashboard.service';
-import { ClaimsService } from '../../../claims/services/claims.service';
 import { DashboardViewModel } from '../../models/dashboard.model';
-import { Claim } from '../../../claims/models/claim.model';
-import { PaginatedResult } from '../../../../core/models/pagination.model';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { APP_ROUTES } from '../../../../core/constants/app-routes';
 
 @Component({
   selector: 'app-dashboard-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, CurrencyFormatPipe],
+  imports: [CommonModule, RouterModule, CurrencyFormatPipe],
   template: `
     <section class="dash-page">
 
-      <!-- Loading -->
-      <div *ngIf="loading()" class="dash-loading">
-        <div class="dash-loading__ring"></div>
-        <p>Cargando dashboard...</p>
-      </div>
 
       <ng-container *ngIf="!loading() && view() as v">
 
@@ -122,19 +113,13 @@ import { APP_ROUTES } from '../../../../core/constants/app-routes';
               <input type="text" placeholder="Buscar por ID, ramo, cobertura..." (input)="setSearch($event)" />
             </label>
             <div class="dash-chips">
-              <button class="dash-chip" [class.is-active]="riskFilter() === ''" (click)="applyRiskFilter('')">Todos</button>
-              <button class="dash-chip dash-chip--red" [class.is-active]="riskFilter() === 'rojo'" (click)="applyRiskFilter('rojo')">Alto riesgo</button>
-              <button class="dash-chip dash-chip--yellow" [class.is-active]="riskFilter() === 'amarillo'" (click)="applyRiskFilter('amarillo')">Medio riesgo</button>
-              <button class="dash-chip dash-chip--green" [class.is-active]="riskFilter() === 'verde'" (click)="applyRiskFilter('verde')">Bajo riesgo</button>
+              <button class="dash-chip" [class.is-active]="riskFilter() === ''" (click)="riskFilter.set('')">Todos</button>
+              <button class="dash-chip dash-chip--red" [class.is-active]="riskFilter() === 'rojo'" (click)="riskFilter.set('rojo')">Alto riesgo</button>
+              <button class="dash-chip dash-chip--yellow" [class.is-active]="riskFilter() === 'amarillo'" (click)="riskFilter.set('amarillo')">Medio riesgo</button>
+              <button class="dash-chip dash-chip--green" [class.is-active]="riskFilter() === 'verde'" (click)="riskFilter.set('verde')">Bajo riesgo</button>
             </div>
             <div class="dash-toolbar__right">
-              <span class="dash-count">{{ bandejaResult()?.total ?? 0 }} casos</span>
-              <label class="dash-limit-label">
-                Mostrar
-                <select [ngModel]="bandejaLimit()" (ngModelChange)="applyLimit($event)">
-                  <option *ngFor="let n of limitOptions" [value]="n">{{ n }}</option>
-                </select>
-              </label>
+              <span class="dash-count">{{ filteredClaims().length }} casos</span>
             </div>
           </div>
 
@@ -154,26 +139,26 @@ import { APP_ROUTES } from '../../../../core/constants/app-routes';
                 <tr *ngFor="let claim of filteredClaims()">
                   <td>
                     <strong>{{ claim.id }}</strong>
-                    <span>{{ claim.branch ?? '—' }}</span>
+                    <span>{{ claim.branch }}</span>
                   </td>
-                  <td class="dash-td--muted">{{ claim.coverage ?? '—' }}</td>
+                  <td class="dash-td--muted">{{ claim.coverage }}</td>
                   <td class="dash-td--amount">{{ claim.claimedAmount | currencyFormat }}</td>
                   <td>
                     <div class="score-bar-wrap">
                       <div class="score-bar">
                         <div class="score-bar__fill"
-                             [class]="'score-bar__fill--' + claim.score.level"
-                             [style.width.%]="claim.score.finalScore">
+                             [class]="'score-bar__fill--' + claim.riskLevel"
+                             [style.width.%]="claim.finalScore">
                         </div>
                       </div>
-                      <span [style.color]="scoreColor(claim.score.finalScore)" class="score-num">
-                        {{ claim.score.finalScore }}
+                      <span [style.color]="scoreColor(claim.finalScore)" class="score-num">
+                        {{ claim.finalScore }}
                       </span>
                     </div>
                   </td>
                   <td>
-                    <span class="dash-risk-badge" [class]="'dash-risk-badge--' + claim.score.level">
-                      ● {{ riskLabel(claim.score.level) }}
+                    <span class="dash-risk-badge" [class]="'dash-risk-badge--' + claim.riskLevel">
+                      ● {{ riskLabel(claim.riskLevel) }}
                     </span>
                   </td>
                   <td>
@@ -187,24 +172,9 @@ import { APP_ROUTES } from '../../../../core/constants/app-routes';
                 </tr>
               </tbody>
             </table>
-            <p class="dash-empty" *ngIf="filteredClaims().length === 0 && !bandejaLoading()">
+            <p class="dash-empty" *ngIf="filteredClaims().length === 0">
               No hay casos que coincidan con los filtros aplicados.
             </p>
-          </div>
-
-          <!-- Paginación -->
-          <div class="dash-pagination" *ngIf="bandejaResult() as r">
-            <span class="dash-pagination__info">
-              Página {{ bandejaPage() }} de {{ r.totalPages }} · {{ r.total }} casos
-            </span>
-            <div class="dash-pagination__btns" *ngIf="r.totalPages > 1">
-              <button class="dash-btn dash-btn--sm" [disabled]="bandejaPage() === 1" (click)="prevBandejaPage()">
-                ← Anterior
-              </button>
-              <button class="dash-btn dash-btn--sm" [disabled]="bandejaPage() >= r.totalPages" (click)="nextBandejaPage()">
-                Siguiente →
-              </button>
-            </div>
           </div>
         </div>
 
@@ -240,7 +210,7 @@ import { APP_ROUTES } from '../../../../core/constants/app-routes';
                 </div>
                 <div class="donut-legend">
                   <div *ngFor="let item of v.riskDistribution" class="donut-legend__item">
-                    <span class="donut-dot" [style.background]="riskColor(item.level)"></span>
+                    <span class="donut-dot" [style.background]="donutColor(item.level)"></span>
                     <span class="donut-legend__label">{{ riskLabel(item.level) }}</span>
                     <span class="donut-legend__count">{{ item.count }}</span>
                   </div>
@@ -288,31 +258,23 @@ export class DashboardPageComponent implements OnInit {
   activeTab = signal<'bandeja' | 'analisis'>('bandeja');
   searchQuery = signal('');
   riskFilter = signal('');
-
-  // Bandeja pagination
-  bandejaResult = signal<PaginatedResult<Claim> | null>(null);
-  bandejaLoading = signal(false);
-  bandejaLimit = signal(20);
-  bandejaPage = signal(1);
-
-  // Analytics tab (lazy)
   analyticsLoaded = signal(false);
-  analyticsLoading = signal(false);
 
   readonly APP_ROUTES = APP_ROUTES;
-  readonly limitOptions = [20, 50, 100];
 
   filteredClaims = computed(() => {
-    const items = this.bandejaResult()?.items ?? [];
+    let items = this.view()?.topRiskClaims ?? [];
     const q = this.searchQuery().toLowerCase().trim();
-    if (!q) return items;
-    return items.filter((c) => c.id.toLowerCase().includes(q) || (c.branch ?? '').toLowerCase().includes(q));
+    if (q) items = items.filter((c) => c.id.toLowerCase().includes(q) || c.branch.toLowerCase().includes(q));
+    const rf = this.riskFilter();
+    if (rf) items = items.filter((c) => c.riskLevel === rf);
+    return items;
   });
 
   donutGradient = computed(() => {
     const dist = this.view()?.riskDistribution ?? [];
     if (!dist.length) return 'conic-gradient(from -90deg, #1e293b 0% 100%)';
-    const colors: Record<string, string> = { rojo: '#ef4444', critico: '#dc2626', amarillo: '#f59e0b', verde: '#22c55e' };
+    const colors: Record<string, string> = { rojo: '#e24b4a', critico: '#d85a30', amarillo: '#8a7517', verde: '#1d9e75' };
     let pct = 0;
     const stops = dist.map((item) => {
       const c = colors[item.level] ?? '#6b7280';
@@ -323,8 +285,14 @@ export class DashboardPageComponent implements OnInit {
     return `conic-gradient(from -90deg, ${stops.join(', ')})`;
   });
 
-  maxOccurrences = computed(() => Math.max(...(this.view()?.alertRanking ?? []).map((a) => a.occurrences), 1));
   maxBranchClaims = computed(() => Math.max(...(this.view()?.branchRisk ?? []).map((b) => b.totalClaims), 1));
+
+  maxOccurrences = computed(() => Math.max(...(this.view()?.alertRanking ?? []).map((a) => a.occurrences), 1));
+
+  donutColor(level: string): string {
+    const map: Record<string, string> = { rojo: '#e24b4a', critico: '#d85a30', amarillo: '#f59e0b', verde: '#1d9e75' };
+    return map[level] ?? '#6b7280';
+  }
 
   get currentMonth(): string {
     return new Date().toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
@@ -337,55 +305,26 @@ export class DashboardPageComponent implements OnInit {
     return `$${amount}`;
   }
 
-  constructor(
-    private dashboardService: DashboardService,
-    private claimsService: ClaimsService,
-  ) {}
+  constructor(private dashboardService: DashboardService) {}
 
   ngOnInit(): void {
     this.dashboardService.getDashboardView().subscribe({
       next: (view) => { this.view.set(view); this.loading.set(false); },
       error: () => this.loading.set(false),
     });
-    this.loadBandeja();
   }
 
   switchTab(tab: 'bandeja' | 'analisis'): void {
     this.activeTab.set(tab);
     if (tab === 'analisis' && !this.analyticsLoaded()) {
-      this.analyticsLoading.set(true);
       this.dashboardService.getAnalyticsData().subscribe({
         next: (data) => {
           const v = this.view();
           if (v) this.view.set({ ...v, ...data });
           this.analyticsLoaded.set(true);
-          this.analyticsLoading.set(false);
         },
-        error: () => this.analyticsLoading.set(false),
       });
     }
-  }
-
-  applyRiskFilter(level: string): void {
-    this.riskFilter.set(level);
-    this.bandejaPage.set(1);
-    this.loadBandeja();
-  }
-
-  applyLimit(limit: number): void {
-    this.bandejaLimit.set(Number(limit));
-    this.bandejaPage.set(1);
-    this.loadBandeja();
-  }
-
-  nextBandejaPage(): void {
-    this.bandejaPage.update((p) => p + 1);
-    this.loadBandeja();
-  }
-
-  prevBandejaPage(): void {
-    this.bandejaPage.update((p) => Math.max(1, p - 1));
-    this.loadBandeja();
   }
 
   setSearch(e: Event): void {
@@ -397,24 +336,9 @@ export class DashboardPageComponent implements OnInit {
     return map[level] ?? level;
   }
 
-  riskColor(level: string): string {
-    const map: Record<string, string> = { rojo: '#ef4444', critico: '#dc2626', amarillo: '#f59e0b', verde: '#22c55e' };
-    return map[level] ?? '#6b7280';
-  }
-
   scoreColor(score: number): string {
     if (score >= 75) return 'var(--color-red)';
     if (score >= 50) return 'var(--color-orange)';
     return 'var(--color-green)';
-  }
-
-  private loadBandeja(): void {
-    this.bandejaLoading.set(true);
-    this.claimsService
-      .listClaimsPaginated(this.bandejaPage(), this.bandejaLimit(), this.riskFilter())
-      .subscribe({
-        next: (result) => { this.bandejaResult.set(result); this.bandejaLoading.set(false); },
-        error: () => this.bandejaLoading.set(false),
-      });
   }
 }

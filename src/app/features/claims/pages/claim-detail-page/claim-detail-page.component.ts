@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { AppCardComponent } from '../../../../shared/components/card/app-card.component';
 import { EmptyStateComponent } from '../../../../shared/components/empty-state/empty-state.component';
-import { LoadingSpinnerComponent } from '../../../../shared/components/loading-spinner/loading-spinner.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { DateFormatPipe } from '../../../../shared/pipes/date-format.pipe';
 import { NotificationService } from '../../../../core/services/notification.service';
@@ -26,7 +25,6 @@ import { ClaimScoreSummaryComponent } from '../../components/claim-score-summary
     RouterModule,
     AppCardComponent,
     EmptyStateComponent,
-    LoadingSpinnerComponent,
     CurrencyFormatPipe,
     DateFormatPipe,
     ClaimAlertsListComponent,
@@ -39,8 +37,6 @@ import { ClaimScoreSummaryComponent } from '../../components/claim-score-summary
   ],
   template: `
     <section class="page">
-      <app-loading-spinner *ngIf="loading()" message="Cargando detalle del siniestro..."></app-loading-spinner>
-
       <ng-container *ngIf="!loading() && claim() as claimDetail">
         <app-claim-header
           [claim]="claimDetail"

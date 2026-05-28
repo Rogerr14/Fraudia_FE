@@ -9,7 +9,6 @@ import {
   AlertRankingApiDto,
   AlertRankingItem,
   BranchRiskItem,
-  CityAlertItem,
   DashboardSummary,
   DashboardSummaryApiDto,
   DashboardViewModel,
@@ -29,7 +28,7 @@ import {
 })
 export class DashboardService {
   private viewCache$: Observable<DashboardViewModel> | null = null;
-  private analyticsCache$: Observable<Pick<DashboardViewModel, 'citiesAlerts' | 'branchRisk'>> | null = null;
+  private analyticsCache$: Observable<Pick<DashboardViewModel, 'branchRisk' | 'alertRanking'>> | null = null;
 
   constructor(
     private http: HttpClientService,
@@ -46,17 +45,13 @@ export class DashboardService {
       this.viewCache$ = forkJoin({
         summaryDto: this.getSummaryDto(),
         topRiskClaims: this.getTopRiskClaims(),
-        providersRanking: this.getProvidersRanking(),
-        alertRanking: this.getAlertRanking(),
       }).pipe(
-        map(({ summaryDto, topRiskClaims, providersRanking, alertRanking }) => ({
+        map(({ summaryDto, topRiskClaims }) => ({
           summary: mapDashboardSummaryFromApi(summaryDto),
           riskDistribution: mapRiskDistributionFromApi(summaryDto),
           topRiskClaims,
-          providersRanking,
-          alertRanking,
-          citiesAlerts: [],
           branchRisk: [],
+          alertRanking: [],
         })),
         shareReplay(1),
       );
@@ -65,16 +60,18 @@ export class DashboardService {
   }
 
   /**
-   * Carga lazy de datos analíticos (branchRisk, citiesAlerts).
-   * Solo se llama cuando el usuario abre el tab "Análisis & Gráficas".
+   * Carga lazy de branchRisk para el tab "Análisis & Gráficas".
    * Resultado cacheado: la segunda visita no hace petición.
    */
-  getAnalyticsData(): Observable<Pick<DashboardViewModel, 'citiesAlerts' | 'branchRisk'>> {
+  getAnalyticsData(): Observable<Pick<DashboardViewModel, 'branchRisk' | 'alertRanking'>> {
     if (!this.analyticsCache$) {
-      this.analyticsCache$ = this.claimsService.listAllClaims().pipe(
-        map((claims) => ({
-          citiesAlerts: this.buildCitiesAlerts(claims),
+      this.analyticsCache$ = forkJoin({
+        claims: this.claimsService.listAllClaims(),
+        alertRanking: this.getAlertRanking(),
+      }).pipe(
+        map(({ claims, alertRanking }) => ({
           branchRisk: this.buildBranchRisk(claims),
+          alertRanking,
         })),
         shareReplay(1),
       );
@@ -112,24 +109,6 @@ export class DashboardService {
     return this.http
       .get<AlertRankingApiDto[]>(API_ENDPOINTS.analytics.alerts, { limit })
       .pipe(map((items) => items.map(mapAlertRankingFromApi)));
-  }
-
-  private buildCitiesAlerts(claims: Claim[]): CityAlertItem[] {
-    const groups = new Map<string, { total: number; high: number; score: number }>();
-    for (const claim of claims) {
-      const city = claim.office || 'Sin ciudad';
-      const cur = groups.get(city) ?? { total: 0, high: 0, score: 0 };
-      cur.total += 1;
-      cur.high += claim.score.level === 'rojo' || claim.score.level === 'critico' ? 1 : 0;
-      cur.score += claim.score.finalScore;
-      groups.set(city, cur);
-    }
-    return Array.from(groups.entries()).map(([city, item]) => ({
-      city,
-      totalClaims: item.total,
-      highRiskClaims: item.high,
-      averageScore: item.total ? Math.round(item.score / item.total) : 0,
-    }));
   }
 
   private buildBranchRisk(claims: Claim[]): BranchRiskItem[] {

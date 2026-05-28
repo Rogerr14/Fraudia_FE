@@ -102,8 +102,6 @@ export interface DashboardViewModel {
   summary: DashboardSummary;
   riskDistribution: RiskDistributionItem[];
   topRiskClaims: TopRiskClaim[];
-  providersRanking: ProviderRankingItem[];
-  citiesAlerts: CityAlertItem[];
   branchRisk: BranchRiskItem[];
   alertRanking: AlertRankingItem[];
 }

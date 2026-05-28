@@ -4,7 +4,6 @@ import { FormsModule } from '@angular/forms';
 import { AppButtonComponent } from '../../../../shared/components/button/app-button.component';
 import { AppCardComponent } from '../../../../shared/components/card/app-card.component';
 import { EmptyStateComponent } from '../../../../shared/components/empty-state/empty-state.component';
-import { LoadingSpinnerComponent } from '../../../../shared/components/loading-spinner/loading-spinner.component';
 import { NotificationService } from '../../../../core/services/notification.service';
 import { PaginatedResult } from '../../../../core/models/pagination.model';
 import { Claim, ClaimFilters } from '../../models/claim.model';
@@ -21,30 +20,27 @@ import { ClaimsTableComponent } from '../../components/claims-table/claims-table
     AppButtonComponent,
     AppCardComponent,
     EmptyStateComponent,
-    LoadingSpinnerComponent,
     ClaimsFiltersComponent,
     ClaimsTableComponent,
   ],
   template: `
     <section class="page">
-      <header class="page-header">
-        <div>
-          <p class="page-kicker">Bandeja operativa</p>
-          <h1>Siniestros</h1>
-          <span>Filtra, prioriza y recalcula el riesgo de cada caso.</span>
-        </div>
-      </header>
-
-      <div class="app-card">
-        <app-claims-filters
-          [total]="result()?.total ?? null"
-          (filtersChanged)="onFiltersChanged($event)"
-        ></app-claims-filters>
-      </div>
-
-      <app-loading-spinner *ngIf="loading()" message="Cargando siniestros..."></app-loading-spinner>
-
       <ng-container *ngIf="!loading() && result() as claimsResult">
+        <header class="page-header">
+          <div>
+            <p class="page-kicker">Bandeja operativa</p>
+            <h1>Siniestros</h1>
+            <span>Filtra, prioriza y recalcula el riesgo de cada caso.</span>
+          </div>
+        </header>
+
+        <div class="app-card">
+          <app-claims-filters
+            [total]="claimsResult.total"
+            (filtersChanged)="onFiltersChanged($event)"
+          ></app-claims-filters>
+        </div>
+
         <app-empty-state
           *ngIf="claimsResult.items.length === 0"
           title="No hay información disponible"

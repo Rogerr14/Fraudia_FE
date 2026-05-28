@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AppButtonComponent } from '../../../../shared/components/button/app-button.component';
 import { FileUploadComponent } from '../../../../shared/components/file-upload/file-upload.component';
-import { LoadingSpinnerComponent } from '../../../../shared/components/loading-spinner/loading-spinner.component';
 import { AppCardComponent } from '../../../../shared/components/card/app-card.component';
 import { NotificationService } from '../../../../core/services/notification.service';
 import { ScoringService } from '../../../claims/services/scoring.service';
@@ -21,7 +20,6 @@ import { UploadErrorsComponent } from '../../components/upload-errors/upload-err
     AppButtonComponent,
     AppCardComponent,
     FileUploadComponent,
-    LoadingSpinnerComponent,
     UploadSummaryComponent,
     UploadErrorsComponent,
   ],
@@ -112,9 +110,6 @@ import { UploadErrorsComponent } from '../../components/upload-errors/upload-err
           <span>Transferencia cifrada · los datos no se almacenan en texto plano</span>
         </div>
       </div>
-
-      <!-- Loading -->
-      <app-loading-spinner *ngIf="uploading()" message="Enviando archivo al backend..."></app-loading-spinner>
 
       <!-- Results -->
       <app-card *ngIf="uploadResult() as result" title="Resumen de carga" eyebrow="Resultado del procesamiento">
