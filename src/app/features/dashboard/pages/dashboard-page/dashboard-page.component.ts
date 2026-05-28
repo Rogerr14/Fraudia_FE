@@ -1,23 +1,24 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LoadingSpinnerComponent } from '../../../../shared/components/loading-spinner/loading-spinner.component';
+import { AppCardComponent } from '../../../../shared/components/card/app-card.component';
 import { EmptyStateComponent } from '../../../../shared/components/empty-state/empty-state.component';
+import { LoadingSpinnerComponent } from '../../../../shared/components/loading-spinner/loading-spinner.component';
 import { DashboardService } from '../../services/dashboard.service';
+import { DashboardViewModel } from '../../models/dashboard.model';
 import { SummaryCardsComponent } from '../../components/summary-cards/summary-cards.component';
 import { RiskDistributionComponent } from '../../components/risk-distribution/risk-distribution.component';
 import { TopRiskClaimsComponent } from '../../components/top-risk-claims/top-risk-claims.component';
 import { ProvidersRankingComponent } from '../../components/providers-ranking/providers-ranking.component';
 import { CitiesAlertsComponent } from '../../components/cities-alerts/cities-alerts.component';
-import { DashboardSummary, RiskDistributionItem, TopRiskClaim, ProviderRankingItem, CityAlert } from '../../../../core/models/dashboard.model';
-import { NotificationService } from '../../../../core/services/notification.service';
 
 @Component({
   selector: 'app-dashboard-page',
   standalone: true,
   imports: [
     CommonModule,
-    LoadingSpinnerComponent,
+    AppCardComponent,
     EmptyStateComponent,
+    LoadingSpinnerComponent,
     SummaryCardsComponent,
     RiskDistributionComponent,
     TopRiskClaimsComponent,
@@ -25,122 +26,70 @@ import { NotificationService } from '../../../../core/services/notification.serv
     CitiesAlertsComponent,
   ],
   template: `
-    <div class="space-y-6 pb-16 md:pb-0">
-      <div>
-        <h1 class="text-3xl font-bold text-slate-900 mb-2">Dashboard de Riesgo</h1>
-        <p class="text-slate-600">Resumen ejecutivo de siniestros y alertas generadas</p>
-      </div>
-
-      <!-- Summary Cards -->
-      <div *ngIf="!loading() && summary()">
-        <app-summary-cards [summary]="summary()!"></app-summary-cards>
-      </div>
-
-      <!-- Loading -->
-      <div *ngIf="loading()">
-        <app-loading-spinner message="Cargando datos del dashboard..."></app-loading-spinner>
-      </div>
-
-      <!-- Empty State -->
-      <div *ngIf="!loading() && !summary()">
-        <app-empty-state
-          icon="📊"
-          title="Sin datos disponibles"
-          message="Carga un dataset para comenzar el análisis."
-        ></app-empty-state>
-      </div>
-
-      <!-- Risk Distribution & Top Claims -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6" *ngIf="!loading() && summary()">
-        <app-risk-distribution [items]="riskDistribution()"></app-risk-distribution>
-        <div class="lg:col-span-2">
-          <app-top-risk-claims [items]="topRiskClaims()"></app-top-risk-claims>
+    <section class="page">
+      <header class="page-header">
+        <div>
+          <p class="page-kicker">Centro de monitoreo</p>
+          <h1>Dashboard de riesgo</h1>
+          <span>Resumen ejecutivo para priorizar siniestros sospechosos.</span>
         </div>
-      </div>
+      </header>
 
-      <!-- Providers & Cities -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6" *ngIf="!loading() && summary()">
-        <app-providers-ranking [items]="providersRanking()"></app-providers-ranking>
-        <app-cities-alerts [items]="citiesAlerts()"></app-cities-alerts>
-      </div>
-    </div>
+      <app-loading-spinner *ngIf="loading()" message="Cargando dashboard..."></app-loading-spinner>
+
+      <ng-container *ngIf="!loading() && view() as dashboardView">
+        <app-summary-cards [summary]="dashboardView.summary"></app-summary-cards>
+
+        <div class="dashboard-grid">
+          <app-risk-distribution [items]="dashboardView.riskDistribution"></app-risk-distribution>
+          <app-top-risk-claims [items]="dashboardView.topRiskClaims"></app-top-risk-claims>
+        </div>
+
+        <div class="dashboard-grid dashboard-grid--two">
+          <app-providers-ranking [items]="dashboardView.providersRanking"></app-providers-ranking>
+          <app-cities-alerts [items]="dashboardView.citiesAlerts"></app-cities-alerts>
+        </div>
+
+        <app-card title="Riesgo por ramo" eyebrow="Lectura transversal">
+          <div class="branch-grid" *ngIf="dashboardView.branchRisk.length > 0; else emptyBranches">
+            <div *ngFor="let branch of dashboardView.branchRisk" class="branch-card">
+              <strong>{{ branch.branch }}</strong>
+              <span>{{ branch.totalClaims }} siniestros</span>
+              <div class="branch-card__metrics">
+                <small>Rojos: {{ branch.redClaims }}</small>
+                <small>Amarillos: {{ branch.yellowClaims }}</small>
+                <small>Score: {{ branch.averageScore }}</small>
+              </div>
+            </div>
+          </div>
+          <ng-template #emptyBranches>
+            <p class="muted-text">No hay información disponible.</p>
+          </ng-template>
+        </app-card>
+      </ng-container>
+
+      <app-empty-state
+        *ngIf="!loading() && !view()"
+        title="Carga un dataset para comenzar el análisis"
+        message="Cuando el backend tenga datos, el dashboard mostrará métricas, alertas y prioridades."
+      ></app-empty-state>
+    </section>
   `,
 })
 export class DashboardPageComponent implements OnInit {
-  loading = signal(false);
-  summary = signal<DashboardSummary | null>(null);
-  riskDistribution = signal<RiskDistributionItem[]>([]);
-  topRiskClaims = signal<TopRiskClaim[]>([]);
-  providersRanking = signal<ProviderRankingItem[]>([]);
-  citiesAlerts = signal<CityAlert[]>([]);
+  loading = signal(true);
+  view = signal<DashboardViewModel | null>(null);
 
-  constructor(
-    private dashboardService: DashboardService,
-    private notificationService: NotificationService
-  ) {}
+  constructor(private dashboardService: DashboardService) {}
 
   ngOnInit(): void {
-    this.loadDashboardData();
-  }
-
-  loadDashboardData(): void {
-    this.loading.set(true);
-
-    this.dashboardService.getSummary().subscribe({
-      next: (data) => {
-        this.summary.set(data);
-        this.loadRiskDistribution();
-      },
-      error: (error) => {
-        this.loading.set(false);
-        this.notificationService.error('No se pudo cargar el resumen del dashboard');
-      },
-    });
-  }
-
-  loadRiskDistribution(): void {
-    this.dashboardService.getRiskDistribution().subscribe({
-      next: (data) => {
-        this.riskDistribution.set(data.items);
-        this.loadTopRiskClaims();
-      },
-      error: () => {
-        this.loadTopRiskClaims();
-      },
-    });
-  }
-
-  loadTopRiskClaims(): void {
-    this.dashboardService.getTopRiskClaims(10).subscribe({
-      next: (data) => {
-        this.topRiskClaims.set(data.items);
-        this.loadProvidersRanking();
-      },
-      error: () => {
-        this.loadProvidersRanking();
-      },
-    });
-  }
-
-  loadProvidersRanking(): void {
-    this.dashboardService.getProvidersRanking().subscribe({
-      next: (data) => {
-        this.providersRanking.set(data.items);
-        this.loadCitiesAlerts();
-      },
-      error: () => {
-        this.loadCitiesAlerts();
-      },
-    });
-  }
-
-  loadCitiesAlerts(): void {
-    this.dashboardService.getCitiesAlerts().subscribe({
-      next: (data) => {
-        this.citiesAlerts.set(data.items);
+    this.dashboardService.getDashboardView().subscribe({
+      next: (view) => {
+        this.view.set(view);
         this.loading.set(false);
       },
       error: () => {
+        this.view.set(null);
         this.loading.set(false);
       },
     });

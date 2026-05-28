@@ -6,24 +6,27 @@ import { CommonModule } from '@angular/common';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div [ngClass]="getCardClasses()">
-      <div *ngIf="title" class="border-b border-slate-200 pb-4 mb-4">
-        <h3 class="text-lg font-semibold text-slate-900">{{ title }}</h3>
+    <article class="app-card" [ngClass]="cardClasses">
+      <div *ngIf="title || eyebrow" class="app-card__header">
+        <p *ngIf="eyebrow" class="app-card__eyebrow">{{ eyebrow }}</p>
+        <h3 *ngIf="title">{{ title }}</h3>
       </div>
       <ng-content></ng-content>
-    </div>
+    </article>
   `,
 })
 export class AppCardComponent {
   @Input() title?: string;
-  @Input() highlighted: boolean = false;
-  @Input() noPadding: boolean = false;
+  @Input() eyebrow?: string;
+  @Input() highlighted = false;
+  @Input() compact = false;
+  @Input() noPadding = false;
 
-  getCardClasses(): string {
-    const baseClasses = 'bg-white rounded-lg border border-slate-200 shadow-sm';
-    const paddingClasses = this.noPadding ? '' : 'p-6';
-    const highlightClasses = this.highlighted ? 'border-blue-300 bg-blue-50' : '';
-
-    return `${baseClasses} ${paddingClasses} ${highlightClasses}`;
+  get cardClasses(): Record<string, boolean> {
+    return {
+      'app-card--highlighted': this.highlighted,
+      'app-card--compact': this.compact,
+      'app-card--no-padding': this.noPadding,
+    };
   }
 }

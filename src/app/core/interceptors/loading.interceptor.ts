@@ -1,10 +1,5 @@
 import { Injectable } from '@angular/core';
-import {
-  HttpInterceptor,
-  HttpRequest,
-  HttpHandler,
-  HttpEvent,
-} from '@angular/common/http';
+import { HttpEvent, HttpHandler, HttpInterceptor, HttpRequest } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { LoadingService } from '../services/loading.service';
@@ -13,10 +8,9 @@ import { LoadingService } from '../services/loading.service';
 export class LoadingInterceptor implements HttpInterceptor {
   constructor(private loadingService: LoadingService) {}
 
-  intercept(request: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
-    // Only show loading for significant operations
+  intercept(request: HttpRequest<unknown>, next: HttpHandler): Observable<HttpEvent<unknown>> {
     const shouldShowLoading =
-      request.method !== 'GET' || request.url.includes('/evaluate') || request.url.includes('/query');
+      request.method !== 'GET' || request.url.includes('/assess') || request.url.includes('/query');
 
     if (shouldShowLoading) {
       this.loadingService.show();

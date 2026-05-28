@@ -1,34 +1,60 @@
-export class RiskUtil {
-  static getRiskColor(level: 'Verde' | 'Amarillo' | 'Rojo'): string {
-    const colors = {
-      Verde: '#10b981',
-      Amarillo: '#f59e0b',
-      Rojo: '#ef4444',
-    };
-    return colors[level];
+import { RiskLevel } from '../../core/models/common.model';
+
+export function normalizeRiskLevel(value: string | null | undefined): RiskLevel {
+  const normalized = (value ?? 'verde').toString().trim().toLowerCase();
+
+  if (normalized.includes('crit')) {
+    return 'critico';
   }
 
-  static getRiskLabel(level: 'Verde' | 'Amarillo' | 'Rojo'): string {
-    const labels = {
-      Verde: 'Bajo Riesgo',
-      Amarillo: 'Riesgo Medio',
-      Rojo: 'Alto Riesgo',
-    };
-    return labels[level];
+  if (normalized.includes('rojo') || normalized.includes('high')) {
+    return 'rojo';
   }
 
-  static getScoreLevelFromScore(score: number): 'Verde' | 'Amarillo' | 'Rojo' {
-    if (score >= 0 && score <= 33) return 'Verde';
-    if (score > 33 && score <= 66) return 'Amarillo';
-    return 'Rojo';
+  if (normalized.includes('amarillo') || normalized.includes('medium')) {
+    return 'amarillo';
   }
 
-  static getStatusBadgeClass(level: 'Verde' | 'Amarillo' | 'Rojo'): string {
-    const classes = {
-      Verde: 'bg-green-100 text-green-800',
-      Amarillo: 'bg-amber-100 text-amber-800',
-      Rojo: 'bg-red-100 text-red-800',
-    };
-    return classes[level];
+  return 'verde';
+}
+
+export function getRiskLabel(level: RiskLevel): string {
+  const labels: Record<RiskLevel, string> = {
+    verde: 'Verde',
+    amarillo: 'Amarillo',
+    rojo: 'Rojo',
+    critico: 'Crítico',
+  };
+  return labels[level];
+}
+
+export function getRiskDescription(level: RiskLevel): string {
+  const descriptions: Record<RiskLevel, string> = {
+    verde: 'Bajo riesgo',
+    amarillo: 'Riesgo medio',
+    rojo: 'Alto riesgo',
+    critico: 'Riesgo crítico',
+  };
+  return descriptions[level];
+}
+
+export function getRiskLevelFromScore(score: number | null | undefined): RiskLevel {
+  const normalizedScore = score ?? 0;
+  if (normalizedScore <= 40) {
+    return 'verde';
   }
+
+  if (normalizedScore <= 75) {
+    return 'amarillo';
+  }
+
+  return 'rojo';
+}
+
+export function calculatePercentage(value: number, total: number): number {
+  if (total <= 0) {
+    return 0;
+  }
+
+  return Math.round((value / total) * 100);
 }

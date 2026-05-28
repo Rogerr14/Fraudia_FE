@@ -6,7 +6,7 @@ import { APP_ROUTES } from '../../constants/app-routes';
 interface NavItem {
   label: string;
   route: string;
-  icon: string;
+  shortcut: string;
 }
 
 @Component({
@@ -14,31 +14,32 @@ interface NavItem {
   standalone: true,
   imports: [CommonModule, RouterModule],
   template: `
-    <div class="flex flex-col h-full">
-      <!-- Logo -->
-      <div class="px-6 py-8 border-b border-slate-700">
-        <h1 class="text-2xl font-bold">🔍 Fraude AI</h1>
-        <p class="text-xs text-slate-400 mt-1">Detector de Siniestros</p>
+    <div class="sidebar">
+      <div class="sidebar__brand">
+        <div class="brand-mark" aria-hidden="true">AI</div>
+        <div>
+          <h1>Fraudia AI</h1>
+          <p>Riesgo de siniestros</p>
+        </div>
       </div>
 
-      <!-- Navigation -->
-      <nav class="flex-1 px-4 py-6 space-y-2">
+      <nav class="sidebar__nav" aria-label="Navegación principal">
         <a
           *ngFor="let item of navItems"
           [routerLink]="item.route"
-          routerLinkActive="bg-blue-600"
-          class="flex items-center gap-3 px-4 py-3 rounded-lg text-white hover:bg-slate-800 transition-colors"
+          routerLinkActive="is-active"
+          [routerLinkActiveOptions]="{ exact: item.route === '/dashboard' }"
+          class="sidebar-link"
           (click)="onNavigate()"
         >
-          <span class="text-xl">{{ item.icon }}</span>
+          <span class="sidebar-link__icon" aria-hidden="true">{{ item.shortcut }}</span>
           <span>{{ item.label }}</span>
         </a>
       </nav>
 
-      <!-- Footer -->
-      <div class="px-6 py-4 border-t border-slate-700 text-xs text-slate-400">
-        <p>v1.0.0</p>
-        <p class="mt-2">© 2026 Fraud Detection</p>
+      <div class="sidebar__footer">
+        <span>Demo MVP</span>
+        <strong>v1.0.0</strong>
       </div>
     </div>
   `,
@@ -47,12 +48,12 @@ export class SidebarComponent {
   @Output() navigate = new EventEmitter<void>();
 
   navItems: NavItem[] = [
-    { label: 'Dashboard', route: APP_ROUTES.dashboard, icon: '📊' },
-    { label: 'Cargar Dataset', route: APP_ROUTES.uploads, icon: '📁' },
-    { label: 'Siniestros', route: APP_ROUTES.claims, icon: '📋' },
-    { label: 'Reglas', route: APP_ROUTES.rules, icon: '⚙️' },
-    { label: 'Agente IA', route: APP_ROUTES.agent, icon: '🤖' },
-    { label: 'Reportes', route: APP_ROUTES.reports, icon: '📈' },
+    { label: 'Dashboard', route: APP_ROUTES.dashboard, shortcut: 'D' },
+    { label: 'Cargar dataset', route: APP_ROUTES.uploads, shortcut: 'U' },
+    { label: 'Siniestros', route: APP_ROUTES.claims, shortcut: 'S' },
+    { label: 'Reglas', route: APP_ROUTES.rules, shortcut: 'R' },
+    { label: 'Agente IA', route: APP_ROUTES.agent, shortcut: 'IA' },
+    { label: 'Reportes', route: APP_ROUTES.reports, shortcut: 'P' },
   ];
 
   onNavigate(): void {

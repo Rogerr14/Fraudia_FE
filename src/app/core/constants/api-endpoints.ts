@@ -3,42 +3,22 @@ export const API_ENDPOINTS = {
     check: '/health',
   },
   uploads: {
-    dataset: '/uploads/dataset',
-    status: (batchId: string) => `/uploads/${batchId}/status`,
+    dataset: '/imports/file',
   },
   claims: {
-    list: '/siniestros',
-    detail: (id: string) => `/siniestros/${id}`,
-    create: '/siniestros',
-    update: (id: string) => `/siniestros/${id}`,
-    evaluate: (id: string) => `/siniestros/${id}/evaluate`,
-    score: (id: string) => `/siniestros/${id}/score`,
-    alerts: (id: string) => `/siniestros/${id}/alertas`,
-    review: (id: string) => `/siniestros/${id}/review`,
-    reviewHistory: (id: string) => `/siniestros/${id}/review-history`,
+    list: '/claims',
+    detail: (claimId: string) => `/claims/${claimId}`,
+    assess: (claimId: string) => `/claims/${claimId}/assess`,
   },
-  scoring: {
-    evaluateBatch: '/scoring/evaluate-batch',
+  risk: {
+    topClaims: '/risk/top',
   },
-  rules: {
-    list: '/reglas',
-    detail: (id: number) => `/reglas/${id}`,
-  },
-  dashboard: {
-    summary: '/dashboard/summary',
-    riskDistribution: '/dashboard/risk-distribution',
-    topRiskClaims: '/dashboard/top-risk-claims',
-    providersRanking: '/dashboard/providers-ranking',
-    citiesAlerts: '/dashboard/cities-alerts',
-    branchesRisk: '/dashboard/branches-risk',
+  analytics: {
+    summary: '/analytics/summary',
+    providers: '/analytics/providers',
+    alerts: '/analytics/alerts',
   },
   agent: {
     query: '/agent/query',
-    explain: (claimId: string) => `/agent/siniestro/${claimId}/explain`,
-    suggestedQuestions: '/agent/suggested-questions',
-  },
-  reports: {
-    criticalCases: '/reportes/casos-criticos',
-    executiveSummary: '/reportes/resumen-ejecutivo',
   },
 };

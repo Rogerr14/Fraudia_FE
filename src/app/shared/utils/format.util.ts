@@ -1,23 +1,50 @@
-export class FormatUtil {
-  static formatCurrency(value: number, currency: string = '$'): string {
-    return `${currency} ${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+export type DateDisplayFormat = 'short' | 'long' | 'full' | 'time';
+
+export function formatCurrencyValue(value: number | string | null | undefined): string {
+  const numericValue = typeof value === 'string' ? Number(value) : value;
+
+  if (numericValue === null || numericValue === undefined || Number.isNaN(numericValue)) {
+    return '$0';
   }
 
-  static formatDate(date: string | Date, format: string = 'short'): string {
-    const dateObj = typeof date === 'string' ? new Date(date) : date;
-    const options: Intl.DateTimeFormatOptions = {
-      short: { year: 'numeric', month: 'short', day: 'numeric' },
-      long: { year: 'numeric', month: 'long', day: 'numeric' },
-    } as any;
-    return dateObj.toLocaleDateString('es-ES', options[format]);
+  return new Intl.NumberFormat('es-EC', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(numericValue);
+}
+
+export function formatDateValue(value: string | Date | null | undefined, format: DateDisplayFormat = 'short'): string {
+  if (!value) {
+    return '-';
   }
 
-  static formatNumber(value: number, decimals: number = 0): string {
-    return value.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  const date = typeof value === 'string' ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) {
+    return '-';
   }
 
-  static truncate(text: string, length: number = 50): string {
-    if (text.length <= length) return text;
-    return text.substring(0, length) + '...';
+  const optionsByFormat: Record<DateDisplayFormat, Intl.DateTimeFormatOptions> = {
+    short: { year: 'numeric', month: 'short', day: 'numeric' },
+    long: { year: 'numeric', month: 'long', day: 'numeric' },
+    full: { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' },
+    time: { hour: '2-digit', minute: '2-digit' },
+  };
+
+  return new Intl.DateTimeFormat('es-EC', optionsByFormat[format]).format(date);
+}
+
+export function formatNumberValue(value: number | null | undefined, decimals = 0): string {
+  return new Intl.NumberFormat('es-EC', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(value ?? 0);
+}
+
+export function truncateText(text: string | null | undefined, length = 80): string {
+  if (!text) {
+    return '-';
   }
+
+  return text.length <= length ? text : `${text.slice(0, length)}...`;
 }

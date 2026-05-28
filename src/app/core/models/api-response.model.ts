@@ -1,20 +1,15 @@
+export interface ApiError {
+  code: string;
+  message: string;
+  details?: Record<string, unknown> | null;
+}
+
 export interface ApiResponse<T> {
-  message?: string;
-  data?: T;
-  status?: string;
-  error?: string;
+  success: boolean;
+  message?: string | null;
+  data?: T | null;
+  error?: ApiError | null;
 }
 
-export interface PaginationParams {
-  page?: number;
-  limit?: number;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-}
-
-export interface PaginatedResponse<T> {
-  page: number;
-  limit: number;
-  total: number;
-  items: T[];
-}
+export type QueryParamValue = string | number | boolean | null | undefined;
+export type QueryParams = Record<string, QueryParamValue>;

@@ -1,10 +1,12 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 
-export interface Notification {
+export type NotificationType = 'success' | 'error' | 'info' | 'warning';
+
+export interface AppNotification {
   id: string;
   message: string;
-  type: 'success' | 'error' | 'info' | 'warning';
+  type: NotificationType;
   duration?: number;
 }
 
@@ -12,15 +14,11 @@ export interface Notification {
   providedIn: 'root',
 })
 export class NotificationService {
-  private notificationsSubject = new BehaviorSubject<Notification[]>([]);
-  public notifications$ = this.notificationsSubject.asObservable();
+  private notificationsSubject = new BehaviorSubject<AppNotification[]>([]);
+  readonly notifications$: Observable<AppNotification[]> = this.notificationsSubject.asObservable();
 
-  show(
-    message: string,
-    type: 'success' | 'error' | 'info' | 'warning' = 'info',
-    duration: number = 5000
-  ): void {
-    const notification: Notification = {
+  show(message: string, type: NotificationType = 'info', duration = 5000): void {
+    const notification: AppNotification = {
       id: `${Date.now()}-${Math.random()}`,
       message,
       type,
@@ -42,7 +40,7 @@ export class NotificationService {
   }
 
   error(message: string, duration?: number): void {
-    this.show(message, 'error', duration || 7000);
+    this.show(message, 'error', duration ?? 7000);
   }
 
   info(message: string, duration?: number): void {

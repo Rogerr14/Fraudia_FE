@@ -4,44 +4,57 @@ import { CommonModule } from '@angular/common';
 export interface TableColumn {
   key: string;
   label: string;
-  width?: string;
-  sortable?: boolean;
-  template?: any;
+  align?: 'left' | 'center' | 'right';
 }
+
+export type TableRow = Record<string, string | number | boolean | null | undefined>;
 
 @Component({
   selector: 'app-table',
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="overflow-x-auto rounded-lg border border-slate-200">
-      <table class="w-full text-sm">
-        <thead class="bg-slate-50 border-b border-slate-200">
+    <div class="responsive-table" *ngIf="data.length > 0; else emptyTable">
+      <table>
+        <thead>
           <tr>
-            <th
-              *ngFor="let column of columns"
-              class="px-6 py-3 text-left font-semibold text-slate-900"
-              [style.width]="column.width"
-            >
+            <th *ngFor="let column of columns" [class.is-right]="column.align === 'right'">
               {{ column.label }}
             </th>
           </tr>
         </thead>
         <tbody>
-          <tr
-            *ngFor="let row of data"
-            class="border-b border-slate-200 hover:bg-slate-50 transition-colors"
-          >
-            <td *ngFor="let column of columns" class="px-6 py-4 text-slate-700">
-              {{ row[column.key] }}
+          <tr *ngFor="let row of data">
+            <td
+              *ngFor="let column of columns"
+              [attr.data-label]="column.label"
+              [class.is-right]="column.align === 'right'"
+            >
+              {{ formatCell(row[column.key]) }}
             </td>
           </tr>
         </tbody>
       </table>
     </div>
+    <ng-template #emptyTable>
+      <p class="muted-text">{{ emptyMessage }}</p>
+    </ng-template>
   `,
 })
 export class AppTableComponent {
   @Input() columns: TableColumn[] = [];
-  @Input() data: any[] = [];
+  @Input() data: TableRow[] = [];
+  @Input() emptyMessage = 'No hay información disponible.';
+
+  formatCell(value: TableRow[string]): string {
+    if (value === null || value === undefined || value === '') {
+      return '-';
+    }
+
+    if (typeof value === 'boolean') {
+      return value ? 'Sí' : 'No';
+    }
+
+    return String(value);
+  }
 }

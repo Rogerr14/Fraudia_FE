@@ -1,187 +1,145 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, ViewChild, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { AppCardComponent } from '../../../../shared/components/card/app-card.component';
-import { AppButtonComponent } from '../../../../shared/components/button/app-button.component';
 import { LoadingSpinnerComponent } from '../../../../shared/components/loading-spinner/loading-spinner.component';
-import { EmptyStateComponent } from '../../../../shared/components/empty-state/empty-state.component';
+import { AgentInputComponent } from '../../components/agent-input/agent-input.component';
+import { ChatMessageComponent } from '../../components/chat-message/chat-message.component';
+import { SuggestedQuestionsComponent } from '../../components/suggested-questions/suggested-questions.component';
 import { AgentService } from '../../services/agent.service';
-import { AgentQueryRequest, AgentQueryResponse } from '../../../../core/models/agent.model';
-import { NotificationService } from '../../../../core/services/notification.service';
-
-interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-}
+import { AgentQueryRequest, ChatMessage, SuggestedQuestion } from '../../models/agent.model';
 
 @Component({
   selector: 'app-agent-chat-page',
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule,
     AppCardComponent,
-    AppButtonComponent,
     LoadingSpinnerComponent,
-    EmptyStateComponent,
+    AgentInputComponent,
+    ChatMessageComponent,
+    SuggestedQuestionsComponent,
   ],
   template: `
-    <div class="space-y-6 pb-16 md:pb-0 max-w-4xl mx-auto">
-      <div>
-        <h1 class="text-3xl font-bold text-slate-900 mb-2">🤖 Agente IA</h1>
-        <p class="text-slate-600">Consulta al agente de IA sobre siniestros y patrones de fraude</p>
-      </div>
-
-      <!-- Suggested Questions -->
-      <app-card title="Preguntas Sugeridas">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <button
-            *ngFor="let question of suggestedQuestions()"
-            (click)="onSelectQuestion(question.question)"
-            class="text-left p-3 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors text-sm text-blue-900 font-medium"
-          >
-            {{ question.question }}
-          </button>
+    <section class="page agent-page">
+      <header class="page-header">
+        <div>
+          <p class="page-kicker">Asistente analítico</p>
+          <h1>Agente IA</h1>
+          <span>Consulta señales, explicaciones y prioridades sin reemplazar la revisión humana.</span>
         </div>
+      </header>
+
+      <app-card *ngIf="activeClaimId()" title="Chat asociado a siniestro" eyebrow="Contexto activo" [highlighted]="true">
+        <p class="body-text">
+          Primera pregunta con <strong>claim_id</strong>: {{ activeClaimId() }}. Las siguientes preguntas continuarán con
+          <strong>session_id</strong> cuando el backend lo devuelva.
+        </p>
       </app-card>
 
-      <!-- Chat Area -->
-      <app-card class="min-h-96 flex flex-col">
-        <!-- Messages -->
-        <div class="flex-1 overflow-y-auto mb-4 space-y-4">
-          <div *ngIf="messages().length === 0" class="flex items-center justify-center h-64">
-            <p class="text-slate-600 text-center">
-              Haz una pregunta al agente para comenzar la conversación.
-            </p>
-          </div>
-
-          <div *ngFor="let message of messages()" [ngClass]="message.role === 'user' ? 'text-right' : 'text-left'">
-            <div
-              [ngClass]="message.role === 'user'
-                ? 'bg-blue-600 text-white rounded-bl-lg rounded-tl-lg'
-                : 'bg-slate-100 text-slate-900 rounded-br-lg rounded-tr-lg'"
-              class="inline-block max-w-xs lg:max-w-md px-4 py-2 rounded-lg"
-            >
-              <p class="text-sm">{{ message.content }}</p>
-              <p class="text-xs opacity-70 mt-1">
-                {{ message.timestamp | date: 'short' }}
-              </p>
-            </div>
-          </div>
-
-          <div *ngIf="loadingResponse()" class="text-left">
-            <div class="inline-block bg-slate-100 text-slate-900 rounded-lg px-4 py-2">
-              <p class="text-sm">
-                <span class="inline-block w-2 h-2 bg-slate-400 rounded-full animate-bounce"></span>
-                El agente está pensando...
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Disclaimer -->
-        <div
-          *ngIf="messages().length > 0"
-          class="bg-amber-50 border border-amber-200 rounded p-3 mb-4 text-xs text-amber-900"
-        >
-          <strong>⚠️ Descargo de responsabilidad:</strong> La respuesta representa una alerta de revisión, no una
-          acusación de fraude.
-        </div>
-
-        <!-- Input -->
-        <div class="border-t border-slate-200 pt-4">
-          <div class="flex gap-2">
-            <input
-              type="text"
-              [(ngModel)]="userQuestion"
-              (keyup.enter)="onSendMessage()"
-              placeholder="Escribe tu pregunta..."
-              class="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              [disabled]="loadingResponse()"
-            />
-            <button
-              (click)="onSendMessage()"
-              [disabled]="!userQuestion || loadingResponse()"
-              class="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-400 text-sm"
-            >
-              {{ loadingResponse() ? '...' : 'Enviar' }}
-            </button>
-          </div>
-        </div>
+      <app-card title="Preguntas sugeridas" eyebrow="Inicio rápido">
+        <app-suggested-questions [questions]="suggestedQuestions()" (questionSelected)="selectQuestion($event)"></app-suggested-questions>
       </app-card>
-    </div>
+
+      <app-card title="Conversación" eyebrow="Consulta supervisada">
+        <div class="chat-window">
+          <p *ngIf="messages().length === 0" class="muted-text">Haz una pregunta al agente para comenzar.</p>
+          <app-chat-message *ngFor="let message of messages()" [message]="message"></app-chat-message>
+          <app-loading-spinner *ngIf="loadingResponse()" message="El agente está analizando..."></app-loading-spinner>
+        </div>
+        <p class="disclaimer">{{ disclaimer() }}</p>
+        <app-agent-input #agentInput [loading]="loadingResponse()" (questionSubmitted)="sendQuestion($event)"></app-agent-input>
+      </app-card>
+    </section>
   `,
 })
 export class AgentChatPageComponent implements OnInit {
+  @ViewChild('agentInput') agentInput?: AgentInputComponent;
+
   messages = signal<ChatMessage[]>([]);
-  suggestedQuestions = signal<any[]>([]);
-  userQuestion = '';
+  suggestedQuestions = signal<SuggestedQuestion[]>([]);
   loadingResponse = signal(false);
+  activeClaimId = signal<string | null>(null);
+  disclaimer = signal('La respuesta representa una alerta de revisión, no una acusación de fraude.');
+  private sessionId: string | null = null;
 
   constructor(
-    private agentService: AgentService,
-    private notificationService: NotificationService
+    private route: ActivatedRoute,
+    private agentService: AgentService
   ) {}
 
   ngOnInit(): void {
-    this.loadSuggestedQuestions();
-  }
-
-  loadSuggestedQuestions(): void {
-    this.agentService.getSuggestedQuestions().subscribe({
-      next: (response) => {
-        this.suggestedQuestions.set(response.items);
-      },
-      error: () => {
-        this.notificationService.error('Error al cargar preguntas sugeridas');
-      },
+    this.agentService.getSuggestedQuestions().subscribe((questions) => this.suggestedQuestions.set(questions));
+    this.route.queryParamMap.subscribe((params) => {
+      const claimId = params.get('claim_id');
+      this.activeClaimId.set(claimId);
+      this.sessionId = null;
+      if (claimId) {
+        this.agentInput?.setQuestion('Explícame el riesgo de este siniestro');
+      }
     });
   }
 
-  onSelectQuestion(question: string): void {
-    this.userQuestion = question;
+  selectQuestion(question: string): void {
+    this.agentInput?.setQuestion(question);
   }
 
-  onSendMessage(): void {
-    if (!this.userQuestion.trim()) return;
-
-    const question = this.userQuestion;
-    this.userQuestion = '';
-
-    // Add user message
-    this.messages.set([
-      ...this.messages(),
-      {
-        role: 'user',
-        content: question,
-        timestamp: new Date(),
-      },
-    ]);
-
+  sendQuestion(question: string): void {
+    const userMessage: ChatMessage = {
+      id: this.createMessageId(),
+      role: 'user',
+      content: question,
+      createdAt: new Date(),
+    };
+    this.messages.set([...this.messages(), userMessage]);
     this.loadingResponse.set(true);
+
+    this.agentService
+      .query(this.buildAgentRequest(question))
+      .subscribe({
+        next: (response) => {
+          this.sessionId = response.sessionId ?? this.sessionId;
+          this.activeClaimId.set(response.claimId ?? this.activeClaimId());
+          this.disclaimer.set(response.disclaimer || this.disclaimer());
+          this.messages.set([
+            ...this.messages(),
+            {
+              id: this.createMessageId(),
+              role: 'assistant',
+              content: response.answer,
+              relatedData: response.relatedData,
+              createdAt: new Date(),
+            },
+          ]);
+          this.loadingResponse.set(false);
+        },
+        error: () => this.loadingResponse.set(false),
+      });
+  }
+
+  private createMessageId(): string {
+    return `${Date.now()}-${Math.random()}`;
+  }
+
+  private buildAgentRequest(question: string): AgentQueryRequest {
+    if (this.sessionId) {
+      return {
+        question,
+        sessionId: this.sessionId,
+        useLlm: true,
+      };
+    }
 
     const request: AgentQueryRequest = {
       question,
-      context: { limit: 10 },
+      useLlm: true,
     };
 
-    this.agentService.query(request).subscribe({
-      next: (response) => {
-        this.messages.set([
-          ...this.messages(),
-          {
-            role: 'assistant',
-            content: response.answer,
-            timestamp: new Date(),
-          },
-        ]);
-        this.loadingResponse.set(false);
-      },
-      error: () => {
-        this.loadingResponse.set(false);
-        this.notificationService.error('Error al consultar el agente');
-      },
-    });
+    const claimId = this.activeClaimId();
+    if (claimId) {
+      request.claimId = claimId;
+    }
+
+    return request;
   }
 }

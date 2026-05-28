@@ -1,19 +1,22 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, RouterModule } from '@angular/router';
-import { FormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { AppCardComponent } from '../../../../shared/components/card/app-card.component';
-import { AppButtonComponent } from '../../../../shared/components/button/app-button.component';
-import { RiskBadgeComponent } from '../../../../shared/components/risk-badge/risk-badge.component';
-import { ScoreCardComponent } from '../../../../shared/components/score-card/score-card.component';
+import { EmptyStateComponent } from '../../../../shared/components/empty-state/empty-state.component';
 import { LoadingSpinnerComponent } from '../../../../shared/components/loading-spinner/loading-spinner.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { DateFormatPipe } from '../../../../shared/pipes/date-format.pipe';
-import { ClaimsService } from '../../services/claims.service';
-import { AgentService } from '../../../agent/services/agent.service';
-import { ClaimDetail, ReviewHistoryItem } from '../../../../core/models/claim.model';
 import { NotificationService } from '../../../../core/services/notification.service';
-import { ReviewRequest } from '../../../../core/models/report.model';
+import { ClaimDetail } from '../../models/claim.model';
+import { ReviewHistoryItem, ReviewRequest } from '../../models/review.model';
+import { ClaimsService } from '../../services/claims.service';
+import { ClaimAlertsListComponent } from '../../components/claim-alerts-list/claim-alerts-list.component';
+import { ClaimDocumentsComponent } from '../../components/claim-documents/claim-documents.component';
+import { ClaimHeaderComponent } from '../../components/claim-header/claim-header.component';
+import { ClaimPolicyInfoComponent } from '../../components/claim-policy-info/claim-policy-info.component';
+import { ClaimProviderInfoComponent } from '../../components/claim-provider-info/claim-provider-info.component';
+import { ClaimReviewFormComponent } from '../../components/claim-review-form/claim-review-form.component';
+import { ClaimScoreSummaryComponent } from '../../components/claim-score-summary/claim-score-summary.component';
 
 @Component({
   selector: 'app-claim-detail-page',
@@ -21,454 +24,162 @@ import { ReviewRequest } from '../../../../core/models/report.model';
   imports: [
     CommonModule,
     RouterModule,
-    FormsModule,
     AppCardComponent,
-    AppButtonComponent,
-    RiskBadgeComponent,
-    ScoreCardComponent,
+    EmptyStateComponent,
     LoadingSpinnerComponent,
     CurrencyFormatPipe,
     DateFormatPipe,
+    ClaimAlertsListComponent,
+    ClaimDocumentsComponent,
+    ClaimHeaderComponent,
+    ClaimPolicyInfoComponent,
+    ClaimProviderInfoComponent,
+    ClaimReviewFormComponent,
+    ClaimScoreSummaryComponent,
   ],
   template: `
-    <div class="space-y-6 pb-16 md:pb-0">
-      <div *ngIf="loading()" class="col-span-full">
-        <app-loading-spinner message="Cargando detalle del siniestro..."></app-loading-spinner>
-      </div>
+    <section class="page">
+      <app-loading-spinner *ngIf="loading()" message="Cargando detalle del siniestro..."></app-loading-spinner>
 
-      <div *ngIf="!loading() && claimDetail()">
-        <!-- Header -->
-        <div class="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 class="text-3xl font-bold text-slate-900 mb-2">{{ claimDetail()?.id_siniestro }}</h1>
-            <p class="text-slate-600">{{ claimDetail()?.ramo }} - {{ claimDetail()?.cobertura }}</p>
-          </div>
-          <app-risk-badge [level]="claimDetail()?.score.nivel_riesgo!"></app-risk-badge>
-        </div>
+      <ng-container *ngIf="!loading() && claim() as claimDetail">
+        <app-claim-header
+          [claim]="claimDetail"
+          [evaluating]="evaluating()"
+          [askingAgent]="askingAgent()"
+          (evaluate)="evaluateClaim(claimDetail.id)"
+          (askAgent)="askAgent(claimDetail.id)"
+        ></app-claim-header>
 
-        <!-- Score Card -->
-        <app-score-card
-          [finalScore]="claimDetail()?.score.score_final || 0"
-          [rulesScore]="claimDetail()?.score.score_reglas || 0"
-          [aiScore]="claimDetail()?.score.score_modelo_ia || 0"
-          [nlpScore]="claimDetail()?.score.score_nlp || 0"
-          [riskLevel]="claimDetail()?.score.nivel_riesgo!"
-          [recommendation]="claimDetail()?.score.recomendacion || ''"
-        ></app-score-card>
-
-        <!-- General Info -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <app-card title="Información General">
-            <dl class="space-y-3 text-sm">
-              <div class="flex justify-between">
-                <dt class="text-slate-600">Fecha Ocurrencia:</dt>
-                <dd class="font-medium text-slate-900">{{ claimDetail()?.fecha_ocurrencia | dateFormat }}</dd>
-              </div>
-              <div class="flex justify-between">
-                <dt class="text-slate-600">Fecha Reporte:</dt>
-                <dd class="font-medium text-slate-900">{{ claimDetail()?.fecha_reporte | dateFormat }}</dd>
-              </div>
-              <div class="flex justify-between">
-                <dt class="text-slate-600">Estado:</dt>
-                <dd class="font-medium text-slate-900">{{ claimDetail()?.estado }}</dd>
-              </div>
-              <div class="flex justify-between">
-                <dt class="text-slate-600">Sucursal:</dt>
-                <dd class="font-medium text-slate-900">{{ claimDetail()?.sucursal }}</dd>
-              </div>
-            </dl>
-          </app-card>
-
-          <app-card title="Montos">
-            <dl class="space-y-3 text-sm">
-              <div class="flex justify-between">
-                <dt class="text-slate-600">Monto Reclamado:</dt>
-                <dd class="font-medium text-slate-900">{{ claimDetail()?.monto_reclamado | currencyFormat }}</dd>
-              </div>
-              <div class="flex justify-between">
-                <dt class="text-slate-600">Monto Estimado:</dt>
-                <dd class="font-medium text-slate-900">{{ claimDetail()?.monto_estimado | currencyFormat }}</dd>
-              </div>
-              <div class="flex justify-between">
-                <dt class="text-slate-600">Monto Pagado:</dt>
-                <dd class="font-medium text-slate-900">{{ claimDetail()?.monto_pagado | currencyFormat }}</dd>
-              </div>
-            </dl>
-          </app-card>
-
-          <!-- Policy Info -->
-          <app-card title="Información de Póliza">
-            <dl class="space-y-3 text-sm">
-              <div class="flex justify-between">
-                <dt class="text-slate-600">ID Póliza:</dt>
-                <dd class="font-medium text-slate-900">{{ claimDetail()?.poliza.id_poliza }}</dd>
-              </div>
-              <div class="flex justify-between">
-                <dt class="text-slate-600">Vigencia:</dt>
-                <dd class="font-medium text-slate-900">
-                  {{ claimDetail()?.poliza.fecha_inicio | dateFormat: 'short' }} -
-                  {{ claimDetail()?.poliza.fecha_fin | dateFormat: 'short' }}
-                </dd>
-              </div>
-              <div class="flex justify-between">
-                <dt class="text-slate-600">Suma Asegurada:</dt>
-                <dd class="font-medium text-slate-900">{{ claimDetail()?.poliza.suma_asegurada | currencyFormat }}</dd>
-              </div>
-              <div class="flex justify-between">
-                <dt class="text-slate-600">Estado:</dt>
-                <dd class="font-medium text-slate-900">{{ claimDetail()?.poliza.estado_poliza }}</dd>
-              </div>
-            </dl>
-          </app-card>
-
-          <!-- Insured Info -->
-          <app-card title="Información del Asegurado">
-            <dl class="space-y-3 text-sm">
-              <div class="flex justify-between">
-                <dt class="text-slate-600">ID Asegurado:</dt>
-                <dd class="font-medium text-slate-900">{{ claimDetail()?.asegurado.id_asegurado }}</dd>
-              </div>
-              <div class="flex justify-between">
-                <dt class="text-slate-600">Segmento:</dt>
-                <dd class="font-medium text-slate-900">{{ claimDetail()?.asegurado.segmento }}</dd>
-              </div>
-              <div class="flex justify-between">
-                <dt class="text-slate-600">Ciudad:</dt>
-                <dd class="font-medium text-slate-900">{{ claimDetail()?.asegurado.ciudad }}</dd>
-              </div>
-              <div class="flex justify-between">
-                <dt class="text-slate-600">Reclamos últimos 12m:</dt>
-                <dd class="font-medium text-red-600">{{ claimDetail()?.asegurado.reclamos_ultimos_12_meses }}</dd>
-              </div>
-            </dl>
-          </app-card>
-
-          <!-- Vehicle Info -->
-          <app-card *ngIf="claimDetail()?.vehiculo" title="Información del Vehículo">
-            <dl class="space-y-3 text-sm">
-              <div class="flex justify-between">
-                <dt class="text-slate-600">ID:</dt>
-                <dd class="font-medium text-slate-900">{{ claimDetail()?.vehiculo.id_vehiculo }}</dd>
-              </div>
-              <div class="flex justify-between">
-                <dt class="text-slate-600">Marca:</dt>
-                <dd class="font-medium text-slate-900">{{ claimDetail()?.vehiculo.marca }}</dd>
-              </div>
-              <div class="flex justify-between">
-                <dt class="text-slate-600">Modelo:</dt>
-                <dd class="font-medium text-slate-900">{{ claimDetail()?.vehiculo.modelo }}</dd>
-              </div>
-              <div class="flex justify-between">
-                <dt class="text-slate-600">Año:</dt>
-                <dd class="font-medium text-slate-900">{{ claimDetail()?.vehiculo.anio }}</dd>
-              </div>
-            </dl>
-          </app-card>
-
-          <!-- Provider Info -->
-          <app-card title="Información del Proveedor">
-            <dl class="space-y-3 text-sm">
-              <div class="flex justify-between">
-                <dt class="text-slate-600">ID Proveedor:</dt>
-                <dd class="font-medium text-slate-900">{{ claimDetail()?.proveedor.id_proveedor }}</dd>
-              </div>
-              <div class="flex justify-between">
-                <dt class="text-slate-600">Nombre:</dt>
-                <dd class="font-medium text-slate-900">{{ claimDetail()?.proveedor.nombre }}</dd>
-              </div>
-              <div class="flex justify-between">
-                <dt class="text-slate-600">Tipo:</dt>
-                <dd class="font-medium text-slate-900">{{ claimDetail()?.proveedor.tipo }}</dd>
-              </div>
-              <div class="flex justify-between">
-                <dt class="text-slate-600">Ciudad:</dt>
-                <dd class="font-medium text-slate-900">{{ claimDetail()?.proveedor.ciudad }}</dd>
-              </div>
-              <div class="flex justify-between">
-                <dt class="text-slate-600">En lista restrictiva:</dt>
-                <dd class="font-medium" [ngClass]="claimDetail()?.proveedor.en_lista_restrictiva ? 'text-red-600' : 'text-green-600'">
-                  {{ claimDetail()?.proveedor.en_lista_restrictiva ? 'Sí' : 'No' }}
-                </dd>
-              </div>
-            </dl>
+        <div class="detail-grid">
+          <app-claim-score-summary [claim]="claimDetail"></app-claim-score-summary>
+          <app-card title="Datos generales" eyebrow="Registro del caso">
+            <div class="info-grid">
+              <div><span>Fecha de ocurrencia</span><strong>{{ claimDetail.occurrenceDate | dateFormat }}</strong></div>
+              <div><span>Fecha de reporte</span><strong>{{ claimDetail.reportedDate | dateFormat }}</strong></div>
+              <div><span>Estado</span><strong>{{ claimDetail.status || '-' }}</strong></div>
+              <div><span>Sucursal</span><strong>{{ claimDetail.office || '-' }}</strong></div>
+              <div><span>Monto reclamado</span><strong>{{ claimDetail.claimedAmount | currencyFormat }}</strong></div>
+              <div><span>Monto estimado</span><strong>{{ claimDetail.estimatedAmount | currencyFormat }}</strong></div>
+              <div><span>Monto pagado</span><strong>{{ claimDetail.paidAmount | currencyFormat }}</strong></div>
+              <div><span>Documentos completos</span><strong>{{ claimDetail.documentsComplete ? 'Sí' : 'No' }}</strong></div>
+            </div>
           </app-card>
         </div>
 
-        <!-- Explanation -->
-        <app-card *ngIf="claimDetail()?.score.explicacion" title="Explicación del Score">
-          <p class="text-slate-700 text-sm leading-relaxed">{{ claimDetail()?.score.explicacion }}</p>
+        <app-card title="Explicación y recomendación" eyebrow="Lectura del score">
+          <p class="body-text">{{ claimDetail.score.explanation }}</p>
+          <p class="body-text"><strong>Recomendación:</strong> {{ claimDetail.score.recommendation }}</p>
         </app-card>
 
-        <!-- Alerts -->
-        <app-card title="Alertas Activadas" [highlighted]="(alertas() || []).length > 0">
-          <div *ngIf="(alertas() || []).length > 0; else noAlerts" class="space-y-3">
-            <div *ngFor="let alert of alertas()" class="border-l-4 border-amber-400 bg-amber-50 p-4 rounded">
-              <div class="flex justify-between items-start mb-2">
-                <p class="font-semibold text-slate-900">{{ alert.nombre_regla }}</p>
-                <span class="text-xs font-bold bg-amber-200 text-amber-900 px-2 py-1 rounded">
-                  +{{ alert.puntaje }} pts
-                </span>
-              </div>
-              <p class="text-sm text-slate-700 mb-2">{{ alert.descripcion }}</p>
-              <p class="text-xs text-slate-600">
-                <strong>Detectado:</strong> {{ alert.valor_detectado }}
-              </p>
-            </div>
-          </div>
-          <ng-template #noAlerts>
-            <p class="text-slate-600 text-center py-4">No hay alertas para este siniestro</p>
-          </ng-template>
-        </app-card>
-
-        <!-- Documents -->
-        <app-card title="Documentos">
-          <div *ngIf="(claimDetail()?.documentos || []).length > 0; else noDocs" class="space-y-2">
-            <div
-              *ngFor="let doc of claimDetail()?.documentos"
-              class="p-3 bg-slate-50 rounded-lg flex items-center justify-between"
-            >
-              <div>
-                <p class="font-medium text-slate-900">{{ doc.tipo_documento }}</p>
-                <p class="text-xs text-slate-600">
-                  {{ doc.entregado ? '✓ Entregado' : '✗ No entregado' }} |
-                  {{ doc.legible ? '✓ Legible' : '✗ No legible' }}
-                </p>
-              </div>
-              <span *ngIf="!doc.inconsistencia_detectada" class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                OK
-              </span>
-              <span *ngIf="doc.inconsistencia_detectada" class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
-                ⚠️ Inconsistencia
-              </span>
-            </div>
-          </div>
-          <ng-template #noDocs>
-            <p class="text-slate-600 text-center py-4">No hay documentos registrados</p>
-          </ng-template>
-        </app-card>
-
-        <!-- Review History -->
-        <app-card title="Historial de Revisión">
-          <div *ngIf="(reviewHistory() || []).length > 0; else noHistory" class="space-y-4">
-            <div *ngFor="let review of reviewHistory()" class="border-l-4 border-blue-400 bg-blue-50 p-4 rounded">
-              <div class="flex justify-between items-start mb-2">
-                <p class="font-semibold text-slate-900">{{ review.decision }}</p>
-                <p class="text-xs text-slate-600">{{ review.created_at | dateFormat }}</p>
-              </div>
-              <p class="text-sm text-slate-700 mb-2">{{ review.comentario }}</p>
-              <p class="text-xs text-slate-600"><strong>Revisado por:</strong> {{ review.reviewed_by }}</p>
-            </div>
-          </div>
-          <ng-template #noHistory>
-            <p class="text-slate-600 text-center py-4">Sin revisiones registradas</p>
-          </ng-template>
-        </app-card>
-
-        <!-- Review Form -->
-        <app-card title="Registrar Revisión Humana" [highlighted]="true">
-          <form [formGroup]="reviewForm" (ngSubmit)="onSubmitReview()" class="space-y-4">
-            <div>
-              <label class="block text-sm font-medium text-slate-700 mb-2">Decisión</label>
-              <select
-                formControlName="decision"
-                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
-              >
-                <option value="">Selecciona una decisión</option>
-                <option value="Aprobar">Aprobar</option>
-                <option value="Rechazar">Rechazar</option>
-                <option value="Escalar a antifraude">Escalar a antifraude</option>
-                <option value="Solicitar información adicional">Solicitar información adicional</option>
-              </select>
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-slate-700 mb-2">Comentario</label>
-              <textarea
-                formControlName="comentario"
-                rows="3"
-                placeholder="Detalla tu decisión..."
-                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
-              ></textarea>
-            </div>
-
-            <button
-              type="submit"
-              [disabled]="reviewSubmitting() || !reviewForm.valid"
-              class="w-full px-6 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors disabled:bg-green-400"
-            >
-              {{ reviewSubmitting() ? 'Registrando...' : 'Registrar Revisión' }}
-            </button>
-          </form>
-        </app-card>
-
-        <!-- AI Agent Explanation -->
-        <app-card title="Explicación del Agente IA">
-          <div class="space-y-4">
-            <p *ngIf="!agentExplanation()" class="text-slate-600 text-sm">
-              Solicita al agente IA que explique por qué este siniestro fue clasificado de esta manera.
-            </p>
-            <div *ngIf="agentExplanation()" class="bg-blue-50 p-4 rounded-lg">
-              <p class="text-slate-700 text-sm leading-relaxed">{{ agentExplanation() }}</p>
-            </div>
-            <button
-              (click)="onRequestAgentExplanation()"
-              [disabled]="gettingAgentExplanation()"
-              class="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-400"
-            >
-              {{ gettingAgentExplanation() ? '🤖 Consultando...' : '🤖 Pedir Explicación' }}
-            </button>
-          </div>
-        </app-card>
-
-        <!-- Action Buttons -->
-        <div class="flex gap-3 flex-wrap">
-          <button
-            (click)="onEvaluateClaim()"
-            [disabled]="evaluatingClaim()"
-            class="px-6 py-2 bg-amber-600 text-white font-medium rounded-lg hover:bg-amber-700 transition-colors disabled:bg-amber-400"
-          >
-            {{ evaluatingClaim() ? '⏳ Evaluando...' : '🔄 Evaluar de nuevo' }}
-          </button>
-          <a
-            href="javascript:history.back()"
-            class="px-6 py-2 bg-slate-300 text-slate-900 font-medium rounded-lg hover:bg-slate-400 transition-colors"
-          >
-            ← Volver
-          </a>
+        <div class="detail-grid detail-grid--two">
+          <app-claim-policy-info [claim]="claimDetail"></app-claim-policy-info>
+          <app-claim-provider-info [provider]="claimDetail.provider"></app-claim-provider-info>
         </div>
-      </div>
-    </div>
+
+        <app-claim-alerts-list [alerts]="claimDetail.score.alerts"></app-claim-alerts-list>
+        <app-claim-documents [documents]="claimDetail.documents"></app-claim-documents>
+
+        <app-card title="Historial de revisión" eyebrow="Trazabilidad humana">
+          <div class="review-history" *ngIf="reviewHistory().length > 0; else noReviews">
+            <article *ngFor="let review of reviewHistory()">
+              <strong>{{ getDecisionLabel(review.decision) }}</strong>
+              <span>{{ review.createdAt | dateFormat: 'long' }} · {{ review.reviewer }}</span>
+              <p>{{ review.comment }}</p>
+              <small>{{ review.reviewStatus }}</small>
+            </article>
+          </div>
+          <ng-template #noReviews>
+            <p class="muted-text">Sin revisiones registradas.</p>
+          </ng-template>
+        </app-card>
+
+        <app-claim-review-form (reviewSubmitted)="submitReview(claimDetail.id, $event)"></app-claim-review-form>
+      </ng-container>
+
+      <app-empty-state
+        *ngIf="!loading() && !claim()"
+        title="No hay información disponible"
+        message="No se encontró el siniestro solicitado."
+      ></app-empty-state>
+    </section>
   `,
 })
 export class ClaimDetailPageComponent implements OnInit {
-  claimDetail = signal<ClaimDetail | null>(null);
-  alertas = signal<any[]>([]);
+  loading = signal(true);
+  evaluating = signal(false);
+  askingAgent = signal(false);
+  claim = signal<ClaimDetail | null>(null);
   reviewHistory = signal<ReviewHistoryItem[]>([]);
-  agentExplanation = signal<string>('');
-
-  loading = signal(false);
-  evaluatingClaim = signal(false);
-  reviewSubmitting = signal(false);
-  gettingAgentExplanation = signal(false);
-
-  reviewForm: FormGroup;
 
   constructor(
     private route: ActivatedRoute,
+    private router: Router,
     private claimsService: ClaimsService,
-    private agentService: AgentService,
-    private notificationService: NotificationService,
-    fb: FormBuilder
-  ) {
-    this.reviewForm = fb.group({
-      decision: ['', Validators.required],
-      comentario: ['', Validators.required],
-      reviewed_by: ['analista.demo'],
-      estado_revision: ['En investigación'],
-    });
-  }
+    private notificationService: NotificationService
+  ) {}
 
   ngOnInit(): void {
     const claimId = this.route.snapshot.paramMap.get('id');
     if (claimId) {
-      this.loadClaimDetail(claimId);
+      this.loadClaim(claimId);
+      this.loadReviewHistory(claimId);
+    } else {
+      this.loading.set(false);
     }
   }
 
-  loadClaimDetail(claimId: string): void {
-    this.loading.set(true);
-
-    this.claimsService.getClaimDetail(claimId).subscribe({
-      next: (detail) => {
-        this.claimDetail.set(detail);
-        this.loadAlertas(claimId);
-        this.loadReviewHistory(claimId);
-      },
-      error: () => {
-        this.loading.set(false);
-        this.notificationService.error('Error al cargar el detalle del siniestro');
-      },
-    });
-  }
-
-  loadAlertas(claimId: string): void {
-    this.claimsService.getClaimAlerts(claimId).subscribe({
-      next: (response) => {
-        this.alertas.set(response.items);
-        this.loading.set(false);
-      },
-      error: () => {
-        this.loading.set(false);
-      },
-    });
-  }
-
-  loadReviewHistory(claimId: string): void {
-    this.claimsService.getReviewHistory(claimId).subscribe({
-      next: (response) => {
-        this.reviewHistory.set(response.items);
-      },
-      error: () => {},
-    });
-  }
-
-  onEvaluateClaim(): void {
-    const claimId = this.claimDetail()?.id_siniestro;
-    if (!claimId) return;
-
-    this.evaluatingClaim.set(true);
+  evaluateClaim(claimId: string): void {
+    this.evaluating.set(true);
     this.claimsService.evaluateClaim(claimId).subscribe({
       next: () => {
-        this.evaluatingClaim.set(false);
-        this.notificationService.success('Siniestro evaluado correctamente');
-        const id = this.route.snapshot.paramMap.get('id');
-        if (id) this.loadClaimDetail(id);
+        this.evaluating.set(false);
+        this.notificationService.success('Siniestro evaluado correctamente.');
+        this.loadClaim(claimId);
       },
-      error: () => {
-        this.evaluatingClaim.set(false);
-        this.notificationService.error('Error al evaluar el siniestro');
-      },
+      error: () => this.evaluating.set(false),
     });
   }
 
-  onSubmitReview(): void {
-    if (!this.reviewForm.valid) return;
+  askAgent(claimId: string): void {
+    this.router.navigate(['/agent'], { queryParams: { claim_id: claimId } });
+  }
 
-    const claimId = this.claimDetail()?.id_siniestro;
-    if (!claimId) return;
-
-    this.reviewSubmitting.set(true);
-    const review: ReviewRequest = this.reviewForm.value;
-
-    this.claimsService.reviewClaim(claimId, review).subscribe({
+  submitReview(claimId: string, review: ReviewRequest): void {
+    this.claimsService.submitReview(claimId, review).subscribe({
       next: () => {
-        this.reviewSubmitting.set(false);
-        this.notificationService.success('Revisión registrada correctamente');
-        this.reviewForm.reset();
-        const id = this.route.snapshot.paramMap.get('id');
-        if (id) this.loadClaimDetail(id);
-      },
-      error: () => {
-        this.reviewSubmitting.set(false);
-        this.notificationService.error('Error al registrar la revisión');
+        this.notificationService.success('Revisión registrada correctamente.');
+        this.loadReviewHistory(claimId);
       },
     });
   }
 
-  onRequestAgentExplanation(): void {
-    const claimId = this.claimDetail()?.id_siniestro;
-    if (!claimId) return;
+  getDecisionLabel(decision: ReviewHistoryItem['decision']): string {
+    const labels: Record<ReviewHistoryItem['decision'], string> = {
+      approve: 'Aprobar continuidad',
+      reject: 'Rechazar por inconsistencias',
+      escalate: 'Escalar a antifraude',
+      request_information: 'Solicitar información adicional',
+    };
+    return labels[decision];
+  }
 
-    this.gettingAgentExplanation.set(true);
-    this.agentService.explainClaim(claimId).subscribe({
-      next: (response) => {
-        this.agentExplanation.set(response.answer);
-        this.gettingAgentExplanation.set(false);
+  private loadClaim(claimId: string): void {
+    this.loading.set(true);
+    this.claimsService.getClaimDetail(claimId).subscribe({
+      next: (claim) => {
+        this.claim.set(claim);
+        this.loading.set(false);
       },
       error: () => {
-        this.gettingAgentExplanation.set(false);
-        this.notificationService.error('Error al obtener la explicación del agente');
+        this.claim.set(null);
+        this.loading.set(false);
       },
+    });
+  }
+
+  private loadReviewHistory(claimId: string): void {
+    this.claimsService.getReviewHistory(claimId).subscribe({
+      next: (history) => this.reviewHistory.set(history),
     });
   }
 }

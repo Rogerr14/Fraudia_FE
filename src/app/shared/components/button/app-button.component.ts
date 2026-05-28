@@ -1,7 +1,7 @@
-import { Component, Input } from '@angular/core';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
-type ButtonType = 'primary' | 'secondary' | 'danger' | 'success';
+type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'success' | 'ghost';
 type ButtonSize = 'sm' | 'md' | 'lg';
 
 @Component({
@@ -12,48 +12,33 @@ type ButtonSize = 'sm' | 'md' | 'lg';
     <button
       [type]="type"
       [disabled]="disabled || loading"
-      [ngClass]="getButtonClasses()"
-      (click)="onClick()"
+      class="app-button"
+      [ngClass]="buttonClasses"
+      [attr.aria-label]="ariaLabel || label"
+      (click)="pressed.emit()"
     >
-      <span *ngIf="!loading">{{ label }}</span>
-      <span *ngIf="loading" class="flex items-center gap-2">
-        <span class="inline-block w-4 h-4 border-2 border-current border-r-transparent rounded-full animate-spin"></span>
-        {{ loadingLabel }}
-      </span>
+      <span *ngIf="loading" class="button-spinner" aria-hidden="true"></span>
+      <span *ngIf="icon && !loading" class="app-button__icon" aria-hidden="true">{{ icon }}</span>
+      <span>{{ loading ? loadingLabel : label }}</span>
     </button>
   `,
 })
 export class AppButtonComponent {
-  @Input() label: string = 'Click';
+  @Input() label = 'Aceptar';
+  @Input() ariaLabel?: string;
+  @Input() icon?: string;
   @Input() type: 'button' | 'submit' | 'reset' = 'button';
-  @Input() variant: ButtonType = 'primary';
+  @Input() variant: ButtonVariant = 'primary';
   @Input() size: ButtonSize = 'md';
-  @Input() disabled: boolean = false;
-  @Input() loading: boolean = false;
-  @Input() loadingLabel: string = 'Procesando...';
-  @Input() click: (() => void) | null = null;
+  @Input() disabled = false;
+  @Input() loading = false;
+  @Input() loadingLabel = 'Procesando...';
+  @Output() pressed = new EventEmitter<void>();
 
-  onClick(): void {
-    if (this.click) {
-      this.click();
-    }
-  }
-
-  getButtonClasses(): string {
-    const baseClasses = 'font-medium rounded-lg transition-colors duration-200 inline-flex items-center justify-center gap-2';
-    const sizeClasses = {
-      sm: 'px-3 py-1 text-sm',
-      md: 'px-4 py-2 text-base',
-      lg: 'px-6 py-3 text-lg',
+  get buttonClasses(): Record<string, boolean> {
+    return {
+      [`app-button--${this.variant}`]: true,
+      [`app-button--${this.size}`]: true,
     };
-
-    const variantClasses = {
-      primary: 'bg-blue-600 text-white hover:bg-blue-700 disabled:bg-blue-400',
-      secondary: 'bg-slate-300 text-slate-900 hover:bg-slate-400 disabled:bg-slate-200',
-      danger: 'bg-red-600 text-white hover:bg-red-700 disabled:bg-red-400',
-      success: 'bg-green-600 text-white hover:bg-green-700 disabled:bg-green-400',
-    };
-
-    return `${baseClasses} ${sizeClasses[this.size]} ${variantClasses[this.variant]}`;
   }
 }

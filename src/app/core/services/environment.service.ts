@@ -1,27 +1,19 @@
 import { Injectable } from '@angular/core';
-import { environment } from '../../../environments/environment';
+import { APP_CONFIG, AppConfig } from '../config/app-config';
 
 @Injectable({
   providedIn: 'root',
 })
 export class EnvironmentService {
-  getApiBaseUrl(): string {
-    return environment.apiBaseUrl;
+  get config(): AppConfig {
+    return APP_CONFIG;
   }
 
-  getAppEnv(): string {
-    return environment.appEnv;
+  get apiBaseUrl(): string {
+    return APP_CONFIG.apiBaseUrl;
   }
 
-  isDevelopment(): boolean {
-    return environment.appEnv === 'development';
-  }
-
-  isProduction(): boolean {
-    return environment.production;
-  }
-
-  enableMockData(): boolean {
-    return environment.enableMockData;
+  get isProduction(): boolean {
+    return APP_CONFIG.appEnv === 'production';
   }
 }
