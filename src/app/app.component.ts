@@ -14,7 +14,7 @@ import { LoadingSpinnerComponent } from './shared/components/loading-spinner/loa
       <router-outlet></router-outlet>
 
       <div *ngIf="isLoading$ | async" class="global-loading">
-        <app-loading-spinner message="Procesando solicitud..."></app-loading-spinner>
+        <app-loading-spinner message="Analizando información"></app-loading-spinner>
       </div>
 
       <div class="notification-stack" aria-live="polite">

@@ -29,14 +29,14 @@ export class ClaimsService {
   listClaims(filters: ClaimFilters): Observable<PaginatedResult<Claim>> {
     const page = Math.max(filters.page, 1);
     const limit = Math.max(filters.limit, 1);
-    const needsClientFiltering = Boolean(
-      filters.branch || filters.city || filters.provider || filters.dateFrom || filters.dateTo || filters.sortDirection
-    );
+    const needsClientFiltering = Boolean(filters.branch || filters.dateFrom || filters.dateTo || filters.sortDirection);
+    const riskLevel = filters.riskLevel === 'critico' ? 'rojo' : filters.riskLevel || undefined;
 
     const params: QueryParams = {
-      limit: needsClientFiltering ? 20 : limit,
+      limit: needsClientFiltering ? 200 : limit,
       offset: needsClientFiltering ? 0 : (page - 1) * limit,
-      risk_level: filters.riskLevel || undefined,
+      risk_level: riskLevel,
+      min_score: filters.riskLevel === 'critico' ? 90 : undefined,
     };
 
     return this.http.get<ClaimListApiResponse>(API_ENDPOINTS.claims.list, params).pipe(
@@ -59,18 +59,20 @@ export class ClaimsService {
     );
   }
 
-  listAllClaims(limit = 20): Observable<Claim[]> {
+  listAllClaims(limit = 200): Observable<Claim[]> {
     return this.http
       .get<ClaimListApiResponse>(API_ENDPOINTS.claims.list, { limit, offset: 0 })
       .pipe(map((response) => response.items.map(mapClaimFromApi)));
   }
 
   listClaimsPaginated(page: number, limit: number, riskLevel = ''): Observable<PaginatedResult<Claim>> {
+    const normalizedRiskLevel = riskLevel === 'critico' ? 'rojo' : riskLevel || undefined;
     return this.http
       .get<ClaimListApiResponse>(API_ENDPOINTS.claims.list, {
         limit,
         offset: (page - 1) * limit,
-        risk_level: riskLevel || undefined,
+        risk_level: normalizedRiskLevel,
+        min_score: riskLevel === 'critico' ? 90 : undefined,
       })
       .pipe(
         map((res) => ({
@@ -117,10 +119,8 @@ export class ClaimsService {
   private applyClientFilters(claims: Claim[], filters: ClaimFilters): Claim[] {
     return claims.filter((claim) => {
       const branchMatches = !filters.branch || (claim.branch ?? '').toLowerCase().includes(filters.branch.toLowerCase());
-      const providerMatches =
-        !filters.provider || (claim.providerId ?? '').toLowerCase().includes(filters.provider.toLowerCase());
       const dateMatches = this.matchesDateRange(claim.occurrenceDate, filters.dateFrom, filters.dateTo);
-      return branchMatches && providerMatches && dateMatches;
+      return branchMatches && dateMatches;
     });
   }
 

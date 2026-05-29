@@ -12,7 +12,7 @@ import { Provider } from '../../models/claim.model';
   template: `
     <app-card title="Proveedor" eyebrow="Taller, clínica o tercero">
       <div class="info-grid" *ngIf="provider; else noProvider">
-        <div><span>ID</span><strong>{{ provider.id }}</strong></div>
+        <div><span>Código</span><strong>{{ provider.id }}</strong></div>
         <div><span>Nombre</span><strong>{{ provider.name || '-' }}</strong></div>
         <div><span>Tipo</span><strong>{{ provider.providerType || '-' }}</strong></div>
         <div><span>Ciudad</span><strong>{{ provider.city || '-' }}</strong></div>

@@ -35,7 +35,7 @@ import { CommonModule } from '@angular/common';
         <span class="file-upload__or">
           o <span class="file-upload__link">selecciona desde tu equipo</span>
         </span>
-        <small>CSV, XLSX o JSON · máx. {{ maxFileSizeMb }} MB</small>
+        <small>CSV, XLSX o XLSM · máx. {{ maxFileSizeMb }} MB</small>
       </button>
 
       <!-- File selected state -->
@@ -62,7 +62,7 @@ import { CommonModule } from '@angular/common';
   `,
 })
 export class FileUploadComponent {
-  @Input() acceptedFormats = '.csv,.xlsx,.xls,.xlsm,.json';
+  @Input() acceptedFormats = '.csv,.xlsx,.xlsm';
   @Input() maxFileSize = 52_428_800; // 50 MB default
   @Output() fileSelected = new EventEmitter<File>();
   @Output() fileCleared = new EventEmitter<void>();
@@ -118,7 +118,7 @@ export class FileUploadComponent {
     }
     const ext = `.${file.name.split('.').pop()?.toLowerCase() ?? ''}`;
     if (!this.acceptedFormats.split(',').map((s) => s.trim()).includes(ext)) {
-      this.errorMessage = 'Formato no válido. Usa CSV, XLSX o JSON.';
+      this.errorMessage = 'Formato no válido. Usa CSV, XLSX o XLSM.';
       return;
     }
     this.selectedFile = file;

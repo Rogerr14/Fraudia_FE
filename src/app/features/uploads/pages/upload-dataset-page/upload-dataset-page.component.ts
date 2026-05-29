@@ -29,7 +29,7 @@ import { UploadErrorsComponent } from '../../components/upload-errors/upload-err
         <div>
           <p class="page-kicker">Ingesta de datos</p>
           <h1>Cargar dataset</h1>
-          <span>Importa archivos CSV, XLSX o JSON para activar el análisis de riesgo.</span>
+          <span>Importa archivos CSV, XLSX o XLSM para activar el análisis de riesgo.</span>
         </div>
       </header>
 
@@ -72,7 +72,7 @@ import { UploadErrorsComponent } from '../../components/upload-errors/upload-err
               <div class="upload-format-badges">
                 <span>CSV</span>
                 <span>XLSX</span>
-                <span>JSON</span>
+                <span>XLSM</span>
               </div>
             </div>
 

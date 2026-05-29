@@ -110,7 +110,7 @@ import { APP_ROUTES } from '../../../../core/constants/app-routes';
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
               </svg>
-              <input type="text" placeholder="Buscar por ID, ramo, cobertura..." (input)="setSearch($event)" />
+              <input type="text" placeholder="Buscar por código, ramo, cobertura..." (input)="setSearch($event)" />
             </label>
             <div class="dash-chips">
               <button class="dash-chip" [class.is-active]="riskFilter() === ''" (click)="riskFilter.set('')">Todos</button>
@@ -127,7 +127,7 @@ import { APP_ROUTES } from '../../../../core/constants/app-routes';
             <table class="dash-table">
               <thead>
                 <tr>
-                  <th>ID / Ramo</th>
+                  <th>Código / Ramo</th>
                   <th>Cobertura</th>
                   <th>Monto</th>
                   <th>Score IA ↓</th>
@@ -265,7 +265,14 @@ export class DashboardPageComponent implements OnInit {
   filteredClaims = computed(() => {
     let items = this.view()?.topRiskClaims ?? [];
     const q = this.searchQuery().toLowerCase().trim();
-    if (q) items = items.filter((c) => c.id.toLowerCase().includes(q) || c.branch.toLowerCase().includes(q));
+    if (q) {
+      items = items.filter(
+        (c) =>
+          c.id.toLowerCase().includes(q) ||
+          c.branch.toLowerCase().includes(q) ||
+          c.coverage.toLowerCase().includes(q),
+      );
+    }
     const rf = this.riskFilter();
     if (rf) items = items.filter((c) => c.riskLevel === rf);
     return items;
