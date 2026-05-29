@@ -7,12 +7,26 @@ export function normalizeRiskLevel(value: string | null | undefined): RiskLevel 
     return 'critico';
   }
 
-  if (normalized.includes('rojo') || normalized.includes('high')) {
+  if (
+    normalized.includes('rojo') ||
+    normalized.includes('alto') ||
+    normalized.includes('red') ||
+    normalized.includes('high')
+  ) {
     return 'rojo';
   }
 
-  if (normalized.includes('amarillo') || normalized.includes('medium')) {
+  if (
+    normalized.includes('amarillo') ||
+    normalized.includes('medio') ||
+    normalized.includes('yellow') ||
+    normalized.includes('medium')
+  ) {
     return 'amarillo';
+  }
+
+  if (normalized.includes('verde') || normalized.includes('bajo') || normalized.includes('green') || normalized.includes('low')) {
+    return 'verde';
   }
 
   return 'verde';

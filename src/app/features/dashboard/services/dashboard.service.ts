@@ -3,7 +3,8 @@ import { Observable, forkJoin } from 'rxjs';
 import { map, shareReplay } from 'rxjs/operators';
 import { API_ENDPOINTS } from '../../../core/constants/api-endpoints';
 import { HttpClientService } from '../../../core/services/http-client.service';
-import { ClaimApiDto } from '../../claims/models/claim.model';
+import { RiskLevel } from '../../../core/models/common.model';
+import { ClaimApiDto, ClaimListApiResponse } from '../../claims/models/claim.model';
 import {
   AlertDashboardApiDto,
   AlertRankingApiDto,
@@ -41,7 +42,7 @@ export class DashboardService {
     if (!this.viewCache$) {
       this.viewCache$ = forkJoin({
         summaryDto: this.getSummaryDto(),
-        topRiskClaims: this.getTopRiskClaims(),
+        topRiskClaims: this.getDashboardClaims(),
       }).pipe(
         map(({ summaryDto, topRiskClaims }) => ({
           summary: mapDashboardSummaryFromApi(summaryDto),
@@ -94,6 +95,24 @@ export class DashboardService {
     return this.http
       .get<ClaimApiDto[]>(API_ENDPOINTS.risk.topClaims, { limit })
       .pipe(map((claims) => claims.map(mapTopRiskClaimFromApi)));
+  }
+
+  getDashboardClaims(riskLevel: RiskLevel | '' = '', limit = 20): Observable<TopRiskClaim[]> {
+    const normalizedRiskLevel = riskLevel === 'critico' ? 'rojo' : riskLevel || undefined;
+    return this.http
+      .get<ClaimListApiResponse>(API_ENDPOINTS.claims.list, {
+        limit,
+        offset: 0,
+        risk_level: normalizedRiskLevel,
+        min_score: riskLevel === 'critico' ? 90 : undefined,
+      })
+      .pipe(
+        map((response) =>
+          response.items
+            .map(mapTopRiskClaimFromApi)
+            .sort((left, right) => right.finalScore - left.finalScore)
+        )
+      );
   }
 
   getProvidersRanking(limit = 10): Observable<ProviderRankingItem[]> {

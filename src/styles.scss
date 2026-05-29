@@ -2082,6 +2082,11 @@ table {
   transition: opacity 150ms ease, background 150ms ease;
 
   &:hover { opacity: 0.82; }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: wait;
+  }
 }
 
 .dash-btn--pdf {
