@@ -30,8 +30,7 @@ import { AgentQueryRequest, ChatMessage, SuggestedQuestion } from '../../models/
 
       <app-card *ngIf="activeClaimId()" title="Chat asociado a siniestro" eyebrow="Contexto activo" [highlighted]="true">
         <p class="body-text">
-          Primera pregunta con <strong>claim_id</strong>: {{ activeClaimId() }}. Las siguientes preguntas continuarán con
-          <strong>session_id</strong> cuando el backend lo devuelva.
+          Código visible: <strong>{{ activeClaimId() }}</strong>. La conversación conserva su sesión para continuar con el mismo contexto.
         </p>
       </app-card>
 
@@ -43,8 +42,22 @@ import { AgentQueryRequest, ChatMessage, SuggestedQuestion } from '../../models/
         <div class="chat-window">
           <p *ngIf="messages().length === 0" class="muted-text">Haz una pregunta al agente para comenzar.</p>
           <app-chat-message *ngFor="let message of messages()" [message]="message"></app-chat-message>
+          <article *ngIf="loadingResponse()" class="chat-message chat-message--loading" aria-label="El agente está redactando la respuesta">
+            <div>
+              <div class="chat-message__skeleton">
+                <span class="chat-message__skeleton-line chat-message__skeleton-line--wide"></span>
+                <span class="chat-message__skeleton-line"></span>
+                <span class="chat-message__skeleton-line chat-message__skeleton-line--short"></span>
+              </div>
+            </div>
+          </article>
         </div>
-        <p class="disclaimer">{{ disclaimer() }}</p>
+        <div class="agent-meta">
+          <span *ngIf="usedLlm() !== null" class="agent-mode" [class.agent-mode--llm]="usedLlm()">
+            {{ usedLlm() ? 'Respuesta LLM' : 'Respuesta determinística' }}
+          </span>
+          <p class="disclaimer">{{ disclaimer() }}</p>
+        </div>
         <app-agent-input #agentInput [loading]="loadingResponse()" (questionSubmitted)="sendQuestion($event)"></app-agent-input>
       </app-card>
     </section>
@@ -58,6 +71,7 @@ export class AgentChatPageComponent implements OnInit {
   loadingResponse = signal(false);
   activeClaimId = signal<string | null>(null);
   disclaimer = signal('La respuesta representa una alerta de revisión, no una acusación de fraude.');
+  usedLlm = signal<boolean | null>(null);
   private sessionId: string | null = null;
 
   constructor(
@@ -68,17 +82,22 @@ export class AgentChatPageComponent implements OnInit {
   ngOnInit(): void {
     this.agentService.getSuggestedQuestions().subscribe((questions) => this.suggestedQuestions.set(questions));
     this.route.queryParamMap.subscribe((params) => {
-      const claimId = params.get('claim_id');
+      const claimId = params.get('claim_id')?.trim().toUpperCase() ?? null;
+      const changedClaim = claimId !== this.activeClaimId();
       this.activeClaimId.set(claimId);
-      this.sessionId = null;
+      this.sessionId = this.agentService.getStoredSessionId(claimId);
+      if (changedClaim) {
+        this.messages.set([]);
+        this.usedLlm.set(null);
+      }
       if (claimId) {
         this.agentInput?.setQuestion('Explícame el riesgo de este siniestro');
       }
     });
   }
 
-  selectQuestion(question: string): void {
-    this.agentInput?.setQuestion(question);
+  selectQuestion(item: SuggestedQuestion): void {
+    this.agentInput?.setQuestion(item.question);
   }
 
   sendQuestion(question: string): void {
@@ -96,7 +115,7 @@ export class AgentChatPageComponent implements OnInit {
       .subscribe({
         next: (response) => {
           this.sessionId = response.sessionId ?? this.sessionId;
-          this.activeClaimId.set(response.claimId ?? this.activeClaimId());
+          this.usedLlm.set(response.usedLlm);
           this.disclaimer.set(response.disclaimer || this.disclaimer());
           this.messages.set([
             ...this.messages(),
@@ -119,23 +138,13 @@ export class AgentChatPageComponent implements OnInit {
   }
 
   private buildAgentRequest(question: string): AgentQueryRequest {
-    if (this.sessionId) {
-      return {
-        question,
-        sessionId: this.sessionId,
-        useLlm: true,
-      };
-    }
-
+    const claimId = this.activeClaimId();
     const request: AgentQueryRequest = {
       question,
+      claimId,
+      sessionId: this.sessionId,
       useLlm: true,
     };
-
-    const claimId = this.activeClaimId();
-    if (claimId) {
-      request.claimId = claimId;
-    }
 
     return request;
   }

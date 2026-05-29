@@ -8,7 +8,7 @@ import { SuggestedQuestion } from '../../models/agent.model';
   imports: [CommonModule],
   template: `
     <div class="suggested-questions">
-      <button *ngFor="let item of questions" type="button" (click)="questionSelected.emit(item.question)">
+      <button *ngFor="let item of questions" type="button" (click)="questionSelected.emit(item)">
         {{ item.question }}
       </button>
     </div>
@@ -16,5 +16,5 @@ import { SuggestedQuestion } from '../../models/agent.model';
 })
 export class SuggestedQuestionsComponent {
   @Input() questions: SuggestedQuestion[] = [];
-  @Output() questionSelected = new EventEmitter<string>();
+  @Output() questionSelected = new EventEmitter<SuggestedQuestion>();
 }

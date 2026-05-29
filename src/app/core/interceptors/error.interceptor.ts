@@ -1,8 +1,17 @@
 import { Injectable } from '@angular/core';
-import { HttpErrorResponse, HttpEvent, HttpHandler, HttpInterceptor, HttpRequest } from '@angular/common/http';
+import {
+  HttpContextToken,
+  HttpErrorResponse,
+  HttpEvent,
+  HttpHandler,
+  HttpInterceptor,
+  HttpRequest,
+} from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { NotificationService } from '../services/notification.service';
+
+export const SUPPRESS_AGENT_SESSION_ERROR_NOTIFICATION = new HttpContextToken<boolean>(() => false);
 
 @Injectable()
 export class ErrorInterceptor implements HttpInterceptor {
@@ -12,10 +21,25 @@ export class ErrorInterceptor implements HttpInterceptor {
     return next.handle(request).pipe(
       catchError((error: HttpErrorResponse) => {
         const errorMessage = this.resolveErrorMessage(error);
-        this.notificationService.error(errorMessage);
+        if (!this.shouldSuppressNotification(request, error, errorMessage)) {
+          this.notificationService.error(errorMessage);
+        }
         return throwError(() => error);
       })
     );
+  }
+
+  private shouldSuppressNotification(
+    request: HttpRequest<unknown>,
+    error: HttpErrorResponse,
+    errorMessage: string
+  ): boolean {
+    if (!request.context.get(SUPPRESS_AGENT_SESSION_ERROR_NOTIFICATION) || error.status !== 422) {
+      return false;
+    }
+
+    const normalizedMessage = errorMessage.toLowerCase();
+    return normalizedMessage.includes('sesion') || normalizedMessage.includes('session');
   }
 
   private resolveErrorMessage(error: HttpErrorResponse): string {

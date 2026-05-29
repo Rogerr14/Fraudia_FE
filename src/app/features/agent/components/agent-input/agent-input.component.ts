@@ -9,7 +9,7 @@ import { AppButtonComponent } from '../../../../shared/components/button/app-but
   imports: [CommonModule, ReactiveFormsModule, AppButtonComponent],
   template: `
     <form class="agent-input" [formGroup]="form" (ngSubmit)="submit()">
-      <input type="text" formControlName="question" placeholder="Pregunta al agente IA..." />
+      <input type="text" formControlName="question" maxlength="800" placeholder="Pregunta al agente IA..." />
       <app-button label="Enviar" type="submit" [disabled]="form.invalid || loading" [loading]="loading"></app-button>
     </form>
   `,
@@ -19,7 +19,7 @@ export class AgentInputComponent {
   @Output() questionSubmitted = new EventEmitter<string>();
 
   form = this.formBuilder.nonNullable.group({
-    question: ['', [Validators.required, Validators.minLength(3)]],
+    question: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(800)]],
   });
 
   constructor(private formBuilder: FormBuilder) {}

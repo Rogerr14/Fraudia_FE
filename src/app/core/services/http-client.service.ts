@@ -1,9 +1,16 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpContext, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { ApiResponse, QueryParams } from '../models/api-response.model';
 import { EnvironmentService } from './environment.service';
+import { SUPPRESS_AGENT_SESSION_ERROR_NOTIFICATION } from '../interceptors/error.interceptor';
+import { SKIP_GLOBAL_LOADING } from '../interceptors/loading.interceptor';
+
+export interface HttpClientRequestOptions {
+  suppressAgentSessionErrorNotification?: boolean;
+  skipGlobalLoading?: boolean;
+}
 
 @Injectable({
   providedIn: 'root',
@@ -20,9 +27,17 @@ export class HttpClientService {
       .pipe(map((response) => this.unwrapResponse(response)));
   }
 
-  post<T>(endpoint: string, body?: unknown, params?: QueryParams): Observable<T> {
+  post<T>(
+    endpoint: string,
+    body?: unknown,
+    params?: QueryParams,
+    options?: HttpClientRequestOptions
+  ): Observable<T> {
     return this.http
-      .post<ApiResponse<T> | T>(this.buildUrl(endpoint), body ?? {}, { params: this.buildParams(params) })
+      .post<ApiResponse<T> | T>(this.buildUrl(endpoint), body ?? {}, {
+        params: this.buildParams(params),
+        context: this.buildContext(options),
+      })
       .pipe(map((response) => this.unwrapResponse(response)));
   }
 
@@ -64,6 +79,17 @@ export class HttpClientService {
       }
     });
     return httpParams;
+  }
+
+  private buildContext(options?: HttpClientRequestOptions): HttpContext {
+    let context = new HttpContext();
+    if (options?.suppressAgentSessionErrorNotification) {
+      context = context.set(SUPPRESS_AGENT_SESSION_ERROR_NOTIFICATION, true);
+    }
+    if (options?.skipGlobalLoading) {
+      context = context.set(SKIP_GLOBAL_LOADING, true);
+    }
+    return context;
   }
 
   private unwrapResponse<T>(response: ApiResponse<T> | T): T {

@@ -27,6 +27,7 @@ export interface AgentQueryResponse {
   answer: string;
   sessionId?: string | null;
   claimId?: string | null;
+  internalClaimId?: string | null;
   sources: string[];
   usedLlm: boolean;
   disclaimer: string;
@@ -61,6 +62,7 @@ export function mapAgentResponseFromApi(dto: AgentQueryApiResponse): AgentQueryR
     answer: dto.answer,
     sessionId: dto.session_id,
     claimId: dto.claim_id,
+    internalClaimId: dto.claim_id,
     sources: dto.sources ?? [],
     usedLlm: dto.used_llm ?? false,
     disclaimer: dto.disclaimer ?? 'La respuesta representa una alerta de revisión, no una acusación de fraude.',

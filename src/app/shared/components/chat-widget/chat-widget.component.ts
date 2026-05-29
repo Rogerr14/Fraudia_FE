@@ -64,15 +64,22 @@ import { ChatMessageComponent } from '../../../features/agent/components/chat-me
 
         <app-chat-message *ngFor="let msg of messages()" [message]="msg"></app-chat-message>
 
-        <div *ngIf="loading()" class="chat-widget__typing">
-          <span></span><span></span><span></span>
-        </div>
+        <article *ngIf="loading()" class="chat-message chat-message--loading" aria-label="El agente está redactando la respuesta">
+          <div>
+            <div class="chat-message__skeleton">
+              <span class="chat-message__skeleton-line chat-message__skeleton-line--wide"></span>
+              <span class="chat-message__skeleton-line"></span>
+              <span class="chat-message__skeleton-line chat-message__skeleton-line--short"></span>
+            </div>
+          </div>
+        </article>
       </div>
 
       <footer class="chat-widget__footer">
         <form [formGroup]="form" (ngSubmit)="submit()">
           <input
             formControlName="question"
+            maxlength="800"
             placeholder="Escribe tu consulta..."
             autocomplete="off"
           />
@@ -96,7 +103,7 @@ export class ChatWidgetComponent implements OnInit {
   loading = signal(false);
 
   form = this.fb.nonNullable.group({
-    question: ['', [Validators.required, Validators.minLength(3)]],
+    question: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(800)]],
   });
 
   private sessionId: string | null = null;
