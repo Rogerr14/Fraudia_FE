@@ -72,6 +72,10 @@ export class AgentChatPageComponent implements OnInit {
   activeClaimId = signal<string | null>(null);
   disclaimer = signal('La respuesta representa una alerta de revisión, no una acusación de fraude.');
   usedLlm = signal<boolean | null>(null);
+  private readonly timeoutResponse =
+    'El agente tardó más de lo esperado y detuve la consulta. Ya puedes enviar otra pregunta o intentarlo de nuevo.';
+  private readonly unavailableResponse =
+    'No pude completar la respuesta. Ya puedes enviar otra pregunta o reformular la consulta.';
   private sessionId: string | null = null;
 
   constructor(
@@ -117,19 +121,13 @@ export class AgentChatPageComponent implements OnInit {
           this.sessionId = response.sessionId ?? this.sessionId;
           this.usedLlm.set(response.usedLlm);
           this.disclaimer.set(response.disclaimer || this.disclaimer());
-          this.messages.set([
-            ...this.messages(),
-            {
-              id: this.createMessageId(),
-              role: 'assistant',
-              content: response.answer,
-              relatedData: response.relatedData,
-              createdAt: new Date(),
-            },
-          ]);
+          this.appendAssistantMessage(response.answer, response.relatedData);
           this.loadingResponse.set(false);
         },
-        error: () => this.loadingResponse.set(false),
+        error: (error) => {
+          this.appendAssistantMessage(this.resolveUnavailableResponse(error));
+          this.loadingResponse.set(false);
+        },
       });
   }
 
@@ -147,5 +145,26 @@ export class AgentChatPageComponent implements OnInit {
     };
 
     return request;
+  }
+
+  private appendAssistantMessage(content: string, relatedData?: string[]): void {
+    this.messages.set([
+      ...this.messages(),
+      {
+        id: this.createMessageId(),
+        role: 'assistant',
+        content,
+        relatedData,
+        createdAt: new Date(),
+      },
+    ]);
+  }
+
+  private resolveUnavailableResponse(error: unknown): string {
+    return this.isTimeoutError(error) ? this.timeoutResponse : this.unavailableResponse;
+  }
+
+  private isTimeoutError(error: unknown): boolean {
+    return typeof error === 'object' && error !== null && 'name' in error && error.name === 'TimeoutError';
   }
 }

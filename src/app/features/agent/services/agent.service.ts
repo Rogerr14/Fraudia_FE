@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable, of, throwError } from 'rxjs';
-import { catchError, delay, map, tap } from 'rxjs/operators';
+import { catchError, delay, map, tap, timeout } from 'rxjs/operators';
 import { API_ENDPOINTS } from '../../../core/constants/api-endpoints';
 import { HttpClientService } from '../../../core/services/http-client.service';
 import {
@@ -18,6 +18,7 @@ import {
 })
 export class AgentService {
   private readonly agentUserId = '30802e66-afa3-4be1-9ef6-aa15baea763a';
+  private readonly responseTimeoutMs = 25000;
   private readonly sessionStoragePrefix = 'fraudia.agent.session.';
 
   constructor(private http: HttpClientService) {}
@@ -97,7 +98,10 @@ export class AgentService {
         suppressAgentSessionErrorNotification: suppressSessionErrorNotification,
         skipGlobalLoading: true,
       })
-      .pipe(map(mapAgentResponseFromApi));
+      .pipe(
+        map(mapAgentResponseFromApi),
+        timeout(this.responseTimeoutMs)
+      );
   }
 
   private prepareRequest(request: AgentQueryRequest): AgentQueryRequest {

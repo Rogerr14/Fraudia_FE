@@ -29,12 +29,11 @@ export class ClaimsService {
   listClaims(filters: ClaimFilters): Observable<PaginatedResult<Claim>> {
     const page = Math.max(filters.page, 1);
     const limit = Math.max(filters.limit, 1);
-    const needsClientFiltering = Boolean(filters.branch || filters.dateFrom || filters.dateTo || filters.sortDirection);
     const riskLevel = filters.riskLevel === 'critico' ? 'rojo' : filters.riskLevel || undefined;
 
     const params: QueryParams = {
-      limit: needsClientFiltering ? 200 : limit,
-      offset: needsClientFiltering ? 0 : (page - 1) * limit,
+      limit,
+      offset: (page - 1) * limit,
       risk_level: riskLevel,
       min_score: filters.riskLevel === 'critico' ? 90 : undefined,
     };
@@ -44,22 +43,20 @@ export class ClaimsService {
         const mappedClaims = response.items.map(mapClaimFromApi);
         const filteredClaims = this.applyClientFilters(mappedClaims, filters);
         const sortedClaims = this.sortClaims(filteredClaims, filters.sortDirection);
-        const items = needsClientFiltering ? sortedClaims.slice((page - 1) * limit, page * limit) : sortedClaims;
-        const total = needsClientFiltering ? sortedClaims.length : response.total;
 
         return {
-          items,
-          total,
+          items: sortedClaims,
+          total: response.total,
           limit,
           offset: (page - 1) * limit,
           page,
-          totalPages: Math.max(1, Math.ceil(total / limit)),
+          totalPages: Math.max(1, Math.ceil(response.total / limit)),
         };
       })
     );
   }
 
-  listAllClaims(limit = 200): Observable<Claim[]> {
+  listAllClaims(limit = 50): Observable<Claim[]> {
     return this.http
       .get<ClaimListApiResponse>(API_ENDPOINTS.claims.list, { limit, offset: 0 })
       .pipe(map((response) => response.items.map(mapClaimFromApi)));

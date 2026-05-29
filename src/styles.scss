@@ -2084,12 +2084,6 @@ table {
   &:hover { opacity: 0.82; }
 }
 
-.dash-btn--csv {
-  background: rgba(24, 95, 165, 0.08);
-  border-color: rgba(24, 95, 165, 0.22);
-  color: var(--color-blue);
-}
-
 .dash-btn--pdf {
   background: rgba(226, 75, 74, 0.08);
   border-color: rgba(226, 75, 74, 0.22);
@@ -3189,6 +3183,56 @@ table {
   flex-direction: column;
   gap: 10px;
   background: #f7fbfd;
+}
+
+.chat-widget__context-bar {
+  align-self: flex-start;
+  max-width: 100%;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 7px 5px 11px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--color-muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+
+  span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  button {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    min-width: 22px;
+    height: 22px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(24, 95, 165, 0.09);
+    color: var(--color-slate);
+    cursor: pointer;
+    transition:
+      background 150ms,
+      transform 150ms;
+
+    &:hover {
+      background: rgba(24, 95, 165, 0.16);
+      transform: scale(1.05);
+    }
+  }
+}
+
+.chat-widget__context-bar--claim {
+  border-color: rgba(24, 95, 165, 0.22);
+  background: rgba(24, 95, 165, 0.08);
+  color: var(--color-slate);
 }
 
 .chat-widget__welcome {
