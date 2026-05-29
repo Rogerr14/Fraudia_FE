@@ -1,9 +1,12 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { AppButtonComponent } from '../../../../shared/components/button/app-button.component';
 import { AppCardComponent } from '../../../../shared/components/card/app-card.component';
 import { EmptyStateComponent } from '../../../../shared/components/empty-state/empty-state.component';
+import { LoadingSpinnerComponent } from '../../../../shared/components/loading-spinner/loading-spinner.component';
+import { APP_ROUTES } from '../../../../core/constants/app-routes';
 import { NotificationService } from '../../../../core/services/notification.service';
 import { PaginatedResult } from '../../../../core/models/pagination.model';
 import { Claim, ClaimFilters } from '../../models/claim.model';
@@ -20,11 +23,14 @@ import { ClaimsTableComponent } from '../../components/claims-table/claims-table
     AppButtonComponent,
     AppCardComponent,
     EmptyStateComponent,
+    LoadingSpinnerComponent,
     ClaimsFiltersComponent,
     ClaimsTableComponent,
   ],
   template: `
     <section class="page">
+      <app-loading-spinner *ngIf="loading()" message="Cargando bandeja de siniestros"></app-loading-spinner>
+
       <ng-container *ngIf="!loading() && result() as claimsResult">
         <header class="page-header">
           <div>
@@ -35,37 +41,42 @@ import { ClaimsTableComponent } from '../../components/claims-table/claims-table
         </header>
 
         <div class="app-card">
-          <app-claims-filters
-            [total]="claimsResult.total"
-            (filtersChanged)="onFiltersChanged($event)"
-          ></app-claims-filters>
+          <app-claims-filters [total]="claimsResult.total" (filtersChanged)="onFiltersChanged($event)"></app-claims-filters>
         </div>
 
         <app-empty-state
           *ngIf="claimsResult.items.length === 0"
-          title="No hay información disponible"
-          message="No hay siniestros que coincidan con los filtros aplicados."
+          title="Carga un dataset para iniciar el análisis"
+          message="No hay siniestros disponibles todavía o no existen coincidencias con los filtros aplicados."
+          actionLabel="Cargar dataset"
+          (action)="goToUploads()"
         ></app-empty-state>
 
         <app-claims-table
           *ngIf="claimsResult.items.length > 0"
           [claims]="claimsResult.items"
           (evaluate)="evaluateClaim($event)"
+          (explain)="explainClaim($event)"
         ></app-claims-table>
 
-        <div class="pagination-bar">
+        <div class="pagination-bar" *ngIf="claimsResult.items.length > 0">
           <span>Página {{ claimsResult.page }} de {{ claimsResult.totalPages }} · {{ claimsResult.total }} siniestros</span>
           <label class="pagination-bar__limit">
             Mostrar
             <select [(ngModel)]="filters.limit" (ngModelChange)="onLimitChanged()">
+              <option [value]="10">10</option>
               <option [value]="20">20</option>
               <option [value]="50">50</option>
-              <option [value]="100">100</option>
             </select>
           </label>
           <div *ngIf="claimsResult.totalPages > 1">
             <app-button label="Anterior" variant="ghost" [disabled]="filters.page === 1" (pressed)="previousPage()"></app-button>
-            <app-button label="Siguiente" variant="secondary" [disabled]="filters.page >= claimsResult.totalPages" (pressed)="nextPage()"></app-button>
+            <app-button
+              label="Siguiente"
+              variant="secondary"
+              [disabled]="filters.page >= claimsResult.totalPages"
+              (pressed)="nextPage()"
+            ></app-button>
           </div>
         </div>
       </ng-container>
@@ -79,13 +90,14 @@ export class ClaimsListPageComponent implements OnInit {
   filters: ClaimFilters = {
     page: 1,
     limit: 20,
-    riskLevel: '',
-    sortDirection: 'desc',
+    sortBy: 'occurrence_date',
+    sortOrder: 'desc',
   };
 
   constructor(
     private claimsService: ClaimsService,
-    private notificationService: NotificationService
+    private notificationService: NotificationService,
+    private router: Router,
   ) {}
 
   ngOnInit(): void {
@@ -119,10 +131,23 @@ export class ClaimsListPageComponent implements OnInit {
   evaluateClaim(claimId: string): void {
     this.claimsService.evaluateClaim(claimId).subscribe({
       next: () => {
-        this.notificationService.success('Siniestro evaluado correctamente.');
+        this.notificationService.success('Siniestro recalculado correctamente.');
         this.loadClaims();
       },
     });
+  }
+
+  explainClaim(claimId: string): void {
+    this.router.navigate([APP_ROUTES.agent], {
+      queryParams: {
+        claim_id: claimId,
+        auto_explain: 'true',
+      },
+    });
+  }
+
+  goToUploads(): void {
+    this.router.navigate([APP_ROUTES.uploads]);
   }
 
   private loadClaims(): void {

@@ -16,18 +16,15 @@ import { RuleDetailComponent } from '../../components/rule-detail/rule-detail.co
           <div>
             <p class="page-kicker">Motor de reglas</p>
             <h1>Reglas de evaluación</h1>
-            <span>Condiciones, categorías y puntajes usados por el motor de riesgo.</span>
+            <span>Condiciones y puntajes usados como apoyo a la revisión humana.</span>
           </div>
         </header>
 
         <div class="rules-card" *ngIf="rulesList.length > 0">
-
-          <!-- Count header -->
           <div class="rules-card__top">
             <span>{{ activeCount() }} REGLAS ACTIVAS</span>
           </div>
 
-          <!-- Column headers -->
           <div class="rules-cols" aria-hidden="true">
             <span></span>
             <span>REGLA</span>
@@ -36,7 +33,6 @@ import { RuleDetailComponent } from '../../components/rule-detail/rule-detail.co
             <span>ESTADO</span>
           </div>
 
-          <!-- Rows -->
           <div class="rules-list">
             <div
               *ngFor="let rule of sortedRules()"
@@ -57,9 +53,7 @@ import { RuleDetailComponent } from '../../components/rule-detail/rule-detail.co
                 <span class="rules-cat-badge">{{ rule.category }}</span>
               </div>
 
-              <div class="rules-row__score" [style.color]="scoreColor(rule.maxScore)">
-                {{ rule.maxScore }}<small> pts</small>
-              </div>
+              <div class="rules-row__score" [style.color]="scoreColor(rule.maxScore)">{{ rule.maxScore }}<small> pts</small></div>
 
               <div class="rules-row__status" [class.is-active]="rule.active">
                 {{ rule.active ? 'Activa' : 'Inactiva' }}
@@ -68,7 +62,6 @@ import { RuleDetailComponent } from '../../components/rule-detail/rule-detail.co
           </div>
         </div>
 
-        <!-- Detail panel -->
         <app-rule-detail *ngIf="selectedRule()" [rule]="selectedRule()"></app-rule-detail>
 
         <app-empty-state
@@ -82,11 +75,11 @@ import { RuleDetailComponent } from '../../components/rule-detail/rule-detail.co
 })
 export class RulesPageComponent implements OnInit {
   loading = signal(true);
-  rules = signal<Rule[] | null>(null);
+  rules = signal<Rule[]>([]);
   selectedRule = signal<Rule | null>(null);
 
-  sortedRules = computed(() => [...(this.rules() ?? [])].sort((a, b) => b.maxScore - a.maxScore));
-  activeCount = computed(() => (this.rules() ?? []).filter((r) => r.active).length);
+  sortedRules = computed(() => [...this.rules()].sort((a, b) => b.maxScore - a.maxScore));
+  activeCount = computed(() => this.rules().filter((rule) => rule.active).length);
 
   constructor(private rulesService: RulesService) {}
 
@@ -94,17 +87,24 @@ export class RulesPageComponent implements OnInit {
     this.rulesService.listRules().subscribe({
       next: (rules) => {
         this.rules.set(rules);
-        // Auto-selecciona la regla de mayor puntaje
-        const sorted = [...rules].sort((a, b) => b.maxScore - a.maxScore);
-        this.selectedRule.set(sorted[0] ?? null);
         this.loading.set(false);
+        if (rules[0]) {
+          this.toggleRule(rules[0]);
+        }
       },
       error: () => this.loading.set(false),
     });
   }
 
   toggleRule(rule: Rule): void {
-    this.selectedRule.set(this.selectedRule()?.id === rule.id ? null : rule);
+    if (this.selectedRule()?.id === rule.id) {
+      this.selectedRule.set(null);
+      return;
+    }
+
+    this.rulesService.getRuleDetail(rule.id).subscribe({
+      next: (ruleDetail) => this.selectedRule.set(ruleDetail),
+    });
   }
 
   scoreColor(score: number): string {

@@ -11,10 +11,9 @@ export class ErrorInterceptor implements HttpInterceptor {
   intercept(request: HttpRequest<unknown>, next: HttpHandler): Observable<HttpEvent<unknown>> {
     return next.handle(request).pipe(
       catchError((error: HttpErrorResponse) => {
-        const errorMessage = this.resolveErrorMessage(error);
-        this.notificationService.error(errorMessage);
+        this.notificationService.error(this.resolveErrorMessage(error));
         return throwError(() => error);
-      })
+      }),
     );
   }
 
@@ -23,9 +22,9 @@ export class ErrorInterceptor implements HttpInterceptor {
       return 'No se pudo conectar con el servidor. Verifica tu conexión.';
     }
 
-    const detail = this.readBackendDetail(error.error);
-    if (detail) {
-      return detail;
+    const backendDetail = this.readBackendDetail(error.error);
+    if (backendDetail) {
+      return backendDetail;
     }
 
     if (error.status === 401) {
@@ -49,17 +48,31 @@ export class ErrorInterceptor implements HttpInterceptor {
     }
 
     const record = payload as Record<string, unknown>;
+
     if (typeof record['detail'] === 'string') {
       return record['detail'];
     }
 
     if (Array.isArray(record['detail'])) {
-      const firstDetail = record['detail'].find((item) => typeof item === 'object' && item !== null);
-      if (firstDetail) {
-        const detailRecord = firstDetail as Record<string, unknown>;
-        if (typeof detailRecord['msg'] === 'string') {
-          return detailRecord['msg'];
-        }
+      const messages = record['detail']
+        .map((item) => {
+          if (typeof item === 'string') {
+            return item;
+          }
+
+          if (typeof item === 'object' && item !== null) {
+            const detailRecord = item as Record<string, unknown>;
+            if (typeof detailRecord['msg'] === 'string') {
+              return detailRecord['msg'];
+            }
+          }
+
+          return null;
+        })
+        .filter((item): item is string => Boolean(item));
+
+      if (messages.length > 0) {
+        return messages.join('\n');
       }
     }
 

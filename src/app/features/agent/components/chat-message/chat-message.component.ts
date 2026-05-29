@@ -12,8 +12,8 @@ import { ChatMessage } from '../../models/agent.model';
       <div>
         <p>{{ message.content }}</p>
         <span>{{ message.createdAt | dateFormat: 'time' }}</span>
-        <div *ngIf="message.relatedData?.length" class="chat-message__sources">
-          <small *ngFor="let item of message.relatedData">{{ item }}</small>
+        <div *ngIf="message.sources?.length" class="chat-message__sources">
+          <small *ngFor="let item of message.sources">{{ item }}</small>
         </div>
       </div>
     </article>

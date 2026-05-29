@@ -1,87 +1,67 @@
 import { RiskLevel } from '../../../core/models/common.model';
-import { Claim, ClaimApiDto, mapClaimFromApi } from '../../claims/models/claim.model';
 import { calculatePercentage, normalizeRiskLevel } from '../../../shared/utils/risk.util';
+import { Claim, ClaimListItemApiDto, mapClaimFromApi } from '../../claims/models/claim.model';
 
 export interface RiskDistributionApiDto {
-  level: string;
-  count: number;
-}
-
-export interface RiskLevelCountApiDto {
-  nivel_riesgo: string;
-  count: number;
-}
-
-export interface BranchCountApiDto {
-  ramo: string;
-  count: number;
-}
-
-export interface TopIndicatorApiDto {
-  codigo_regla: string;
-  frecuencia: number;
+  level?: string | null;
+  nivel_riesgo?: string | null;
+  count?: number | null;
 }
 
 export interface DashboardSummaryApiDto {
-  total_claims?: number;
-  assessed_claims?: number;
-  average_score?: number;
-  total_claimed_amount?: number | string;
-  high_risk_amount?: number | string;
+  total_claims?: number | string | null;
+  assessed_claims?: number | string | null;
+  average_score?: number | string | null;
+  total_claimed_amount?: number | string | null;
+  high_risk_amount?: number | string | null;
   distribution?: RiskDistributionApiDto[];
-  casos_alto_riesgo?: number;
-  casos_en_bandeja?: number;
-  exposicion_total?: number | string;
-  score_promedio_ia?: number;
-  casos_por_ramo?: BranchCountApiDto[];
-  distribucion_nivel_riesgo?: RiskLevelCountApiDto[];
-  top_indicadores?: TopIndicatorApiDto[];
+  distribucion_nivel_riesgo?: RiskDistributionApiDto[];
 }
 
 export interface ProviderRankingApiDto {
-  provider_id?: string;
+  provider_id?: string | null;
   provider_code?: string | null;
-  provider_name?: string;
-  provider_type?: string;
-  total_claims?: number;
-  high_risk_claims?: number;
-  average_score?: number;
-  total_claimed_amount?: number | string;
-  is_restricted?: boolean;
-  proveedor?: string;
-  tipo?: string;
-  casos_alto_riesgo?: number;
-  score_promedio?: number;
+  provider_name?: string | null;
+  provider_type?: string | null;
+  total_claims?: number | string | null;
+  high_risk_claims?: number | string | null;
+  average_score?: number | string | null;
+  total_claimed_amount?: number | string | null;
+  is_restricted?: boolean | null;
 }
 
-export interface ProviderDashboardApiDto {
-  total_proveedores: number;
-  proveedores_con_siniestros: number;
-  proveedores_restringidos: number;
-  casos_asociados: number;
-  casos_alto_riesgo: number;
-  exposicion_total: number | string;
-  score_promedio: number;
-  items: ProviderRankingApiDto[];
+export interface ProviderDashboardSummaryApiDto {
+  items?: ProviderRankingApiDto[];
 }
 
 export interface AlertRankingApiDto {
-  code?: string;
-  title?: string;
-  severity?: string;
-  occurrences?: number;
-  total_points?: number;
-  codigo_regla?: string;
-  indicador?: string;
-  frecuencia?: number;
+  code?: string | null;
+  title?: string | null;
+  severity?: string | null;
+  occurrences?: number | string | null;
+  total_points?: number | string | null;
 }
 
-export interface AlertDashboardApiDto {
-  total_alertas: number;
-  reglas_activadas: number;
-  casos_con_alertas: number;
-  puntos_totales: number;
-  items: AlertRankingApiDto[];
+export interface AlertDashboardSummaryApiDto {
+  items?: AlertRankingApiDto[];
+}
+
+export interface ReviewStatusItemApiDto {
+  status?: string | null;
+  flow_status?: string | null;
+  count?: number | string | null;
+}
+
+export interface BranchCountItemApiDto {
+  branch?: string | null;
+  ramo?: string | null;
+  count?: number | string | null;
+}
+
+export interface CityCountItemApiDto {
+  city?: string | null;
+  ciudad?: string | null;
+  count?: number | string | null;
 }
 
 export interface DashboardSummary {
@@ -105,11 +85,14 @@ export interface RiskDistributionItem {
 
 export interface TopRiskClaim {
   id: string;
+  code: string;
   branch: string;
   coverage: string;
   finalScore: number;
   riskLevel: RiskLevel;
+  flowStatus?: string | null;
   claimedAmount: number;
+  totalAlerts: number;
   mainAlerts: string[];
 }
 
@@ -134,9 +117,6 @@ export interface CityAlertItem {
 export interface BranchRiskItem {
   branch: string;
   totalClaims: number;
-  redClaims: number;
-  yellowClaims: number;
-  averageScore: number;
 }
 
 export interface AlertRankingItem {
@@ -147,61 +127,46 @@ export interface AlertRankingItem {
   totalPoints: number;
 }
 
-export interface DashboardViewModel {
-  summary: DashboardSummary;
-  riskDistribution: RiskDistributionItem[];
-  topRiskClaims: TopRiskClaim[];
-  branchRisk: BranchRiskItem[];
-  alertRanking: AlertRankingItem[];
+export interface ReviewStatusItem {
+  status: string;
+  count: number;
 }
 
 export function mapDashboardSummaryFromApi(dto: DashboardSummaryApiDto): DashboardSummary {
-  const distribution = getRiskDistributionItems(dto);
-  const totalClaims = dto.total_claims ?? dto.casos_en_bandeja ?? 0;
-  const assessedClaims = dto.assessed_claims ?? totalClaims;
-  const greenClaims = getDistributionCount(distribution, 'verde');
-  const yellowClaims = getDistributionCount(distribution, 'amarillo');
-  const redClaims =
-    dto.casos_alto_riesgo ?? getDistributionCount(distribution, 'rojo') + getDistributionCount(distribution, 'critico');
+  const distribution = mapRiskDistributionFromApi(dto);
+  const totalClaims = Number(dto.total_claims ?? 0);
+  const assessedClaims = Number(dto.assessed_claims ?? totalClaims);
 
   return {
     totalClaims,
     assessedClaims,
     pendingClaims: Math.max(0, totalClaims - assessedClaims),
-    greenClaims,
-    yellowClaims,
-    redClaims,
-    averageScore: Math.round(dto.score_promedio_ia ?? dto.average_score ?? 0),
-    totalClaimedAmount: Number(dto.exposicion_total ?? dto.total_claimed_amount ?? 0),
+    greenClaims: getCountForLevel(distribution, 'verde'),
+    yellowClaims: getCountForLevel(distribution, 'amarillo'),
+    redClaims: getCountForLevel(distribution, 'rojo') + getCountForLevel(distribution, 'critico'),
+    averageScore: Math.round(Number(dto.average_score ?? 0)),
+    totalClaimedAmount: Number(dto.total_claimed_amount ?? 0),
     highRiskAmount: Number(dto.high_risk_amount ?? 0),
   };
 }
 
 export function mapRiskDistributionFromApi(dto: DashboardSummaryApiDto): RiskDistributionItem[] {
-  const distribution = getRiskDistributionItems(dto);
-  const total = distribution.reduce((sum, item) => sum + item.count, 0);
-  return distribution.map((item) => {
-    const level = normalizeRiskLevel(item.level);
-    return {
-      level,
-      label: level,
-      count: item.count,
-      percentage: calculatePercentage(item.count, total),
-    };
-  });
-}
+  const items = dto.distribucion_nivel_riesgo?.length ? dto.distribucion_nivel_riesgo : dto.distribution ?? [];
+  const normalizedItems = items.map((item) => ({
+    level: normalizeRiskLevel(item.level ?? item.nivel_riesgo),
+    count: Number(item.count ?? 0),
+  }));
+  const total = normalizedItems.reduce((sum, item) => sum + item.count, 0);
 
-export function mapBranchRiskFromSummary(dto: DashboardSummaryApiDto): BranchRiskItem[] {
-  return (dto.casos_por_ramo ?? []).map((item) => ({
-    branch: item.ramo || 'Sin ramo',
-    totalClaims: item.count,
-    redClaims: 0,
-    yellowClaims: 0,
-    averageScore: 0,
+  return normalizedItems.map((item) => ({
+    level: item.level,
+    label: item.level,
+    count: item.count,
+    percentage: calculatePercentage(item.count, total),
   }));
 }
 
-export function mapTopRiskClaimFromApi(dto: ClaimApiDto): TopRiskClaim {
+export function mapTopRiskClaimFromApi(dto: ClaimListItemApiDto): TopRiskClaim {
   const claim = mapClaimFromApi(dto);
   return mapTopRiskClaimFromClaim(claim);
 }
@@ -209,53 +174,68 @@ export function mapTopRiskClaimFromApi(dto: ClaimApiDto): TopRiskClaim {
 export function mapTopRiskClaimFromClaim(claim: Claim): TopRiskClaim {
   return {
     id: claim.id,
+    code: claim.code,
     branch: claim.branch ?? 'Sin ramo',
     coverage: claim.coverage ?? 'Sin cobertura',
     finalScore: claim.score.finalScore,
     riskLevel: claim.score.level,
+    flowStatus: claim.flowStatus,
     claimedAmount: claim.claimedAmount,
+    totalAlerts: claim.totalAlerts,
     mainAlerts: claim.score.alerts.slice(0, 3).map((alert) => alert.title),
   };
 }
 
 export function mapProviderRankingFromApi(dto: ProviderRankingApiDto): ProviderRankingItem {
-  const providerName = dto.provider_name ?? dto.proveedor ?? 'Sin proveedor';
+  const providerName = dto.provider_name ?? dto.provider_code ?? 'Sin proveedor';
+
   return {
     providerId: dto.provider_id ?? dto.provider_code ?? providerName,
     providerName,
-    providerType: dto.provider_type ?? dto.tipo ?? 'Sin tipo',
-    totalClaims: dto.total_claims ?? dto.casos_alto_riesgo ?? 0,
-    highRiskClaims: dto.high_risk_claims ?? dto.casos_alto_riesgo ?? 0,
-    averageScore: Math.round(dto.average_score ?? dto.score_promedio ?? 0),
+    providerType: dto.provider_type ?? 'Sin tipo',
+    totalClaims: Number(dto.total_claims ?? 0),
+    highRiskClaims: Number(dto.high_risk_claims ?? 0),
+    averageScore: Math.round(Number(dto.average_score ?? 0)),
     totalClaimedAmount: Number(dto.total_claimed_amount ?? 0),
     isRestricted: dto.is_restricted ?? false,
   };
 }
 
 export function mapAlertRankingFromApi(dto: AlertRankingApiDto): AlertRankingItem {
-  const code = dto.code ?? dto.codigo_regla ?? 'SIN-CODIGO';
   return {
-    code,
-    title: dto.title ?? dto.indicador ?? code,
+    code: dto.code ?? 'SIN-CODIGO',
+    title: dto.title ?? dto.code ?? 'Indicador de revisión',
     severity: normalizeRiskLevel(dto.severity),
-    occurrences: dto.occurrences ?? dto.frecuencia ?? 0,
-    totalPoints: dto.total_points ?? 0,
+    occurrences: Number(dto.occurrences ?? 0),
+    totalPoints: Number(dto.total_points ?? 0),
   };
 }
 
-function getDistributionCount(items: RiskDistributionApiDto[], level: RiskLevel): number {
-  return items
-    .filter((item) => normalizeRiskLevel(item.level) === level)
-    .reduce((sum, item) => sum + item.count, 0);
+export function mapReviewStatusFromApi(dto: ReviewStatusItemApiDto): ReviewStatusItem {
+  return {
+    status: dto.status ?? dto.flow_status ?? 'SIN_ESTADO',
+    count: Number(dto.count ?? 0),
+  };
 }
 
-function getRiskDistributionItems(dto: DashboardSummaryApiDto): RiskDistributionApiDto[] {
-  if (dto.distribucion_nivel_riesgo?.length) {
-    return dto.distribucion_nivel_riesgo.map((item) => ({
-      level: item.nivel_riesgo,
-      count: item.count,
-    }));
-  }
+export function mapBranchCountFromApi(dto: BranchCountItemApiDto): BranchRiskItem {
+  return {
+    branch: dto.branch ?? dto.ramo ?? 'Sin ramo',
+    totalClaims: Number(dto.count ?? 0),
+  };
+}
 
-  return dto.distribution ?? [];
+export function mapCityCountFromApi(dto: CityCountItemApiDto): CityAlertItem {
+  return {
+    city: dto.city ?? dto.ciudad ?? 'Sin ciudad',
+    totalClaims: Number(dto.count ?? 0),
+    highRiskClaims: 0,
+    averageScore: 0,
+  };
+}
+
+function getCountForLevel(items: RiskDistributionItem[], level: RiskLevel): number {
+  return items
+    .filter((item) => item.level === level)
+    .reduce((sum, item) => sum + item.count, 0);
 }

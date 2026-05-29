@@ -1,25 +1,32 @@
 import { Injectable } from '@angular/core';
-import { Observable, forkJoin } from 'rxjs';
+import { Observable } from 'rxjs';
 import { map, shareReplay } from 'rxjs/operators';
 import { API_ENDPOINTS } from '../../../core/constants/api-endpoints';
 import { HttpClientService } from '../../../core/services/http-client.service';
-import { ClaimApiDto } from '../../claims/models/claim.model';
+import { ClaimListItemApiDto } from '../../claims/models/claim.model';
 import {
-  AlertDashboardApiDto,
+  AlertDashboardSummaryApiDto,
   AlertRankingApiDto,
   AlertRankingItem,
+  BranchCountItemApiDto,
+  BranchRiskItem,
+  CityAlertItem,
+  CityCountItemApiDto,
   DashboardSummary,
   DashboardSummaryApiDto,
-  DashboardViewModel,
-  ProviderDashboardApiDto,
+  ProviderDashboardSummaryApiDto,
   ProviderRankingApiDto,
   ProviderRankingItem,
+  ReviewStatusItem,
+  ReviewStatusItemApiDto,
   RiskDistributionItem,
   TopRiskClaim,
   mapAlertRankingFromApi,
-  mapBranchRiskFromSummary,
+  mapBranchCountFromApi,
+  mapCityCountFromApi,
   mapDashboardSummaryFromApi,
   mapProviderRankingFromApi,
+  mapReviewStatusFromApi,
   mapRiskDistributionFromApi,
   mapTopRiskClaimFromApi,
 } from '../models/dashboard.model';
@@ -28,59 +35,9 @@ import {
   providedIn: 'root',
 })
 export class DashboardService {
-  private viewCache$: Observable<DashboardViewModel> | null = null;
-  private analyticsCache$: Observable<Pick<DashboardViewModel, 'branchRisk' | 'alertRanking'>> | null = null;
+  private summaryDto$: Observable<DashboardSummaryApiDto> | null = null;
 
   constructor(private http: HttpClientService) {}
-
-  /**
-   * Carga rápida: summary y top claims.
-   * Usa getAnalyticsData() de forma lazy cuando el usuario abre el tab Análisis.
-   */
-  getDashboardView(): Observable<DashboardViewModel> {
-    if (!this.viewCache$) {
-      this.viewCache$ = forkJoin({
-        summaryDto: this.getSummaryDto(),
-        topRiskClaims: this.getTopRiskClaims(),
-      }).pipe(
-        map(({ summaryDto, topRiskClaims }) => ({
-          summary: mapDashboardSummaryFromApi(summaryDto),
-          riskDistribution: mapRiskDistributionFromApi(summaryDto),
-          topRiskClaims,
-          branchRisk: [],
-          alertRanking: [],
-        })),
-        shareReplay(1),
-      );
-    }
-    return this.viewCache$;
-  }
-
-  /**
-   * Carga lazy de ramo e indicadores para el tab "Análisis & Gráficas".
-   * Resultado cacheado: la segunda visita no hace petición.
-   */
-  getAnalyticsData(): Observable<Pick<DashboardViewModel, 'branchRisk' | 'alertRanking'>> {
-    if (!this.analyticsCache$) {
-      this.analyticsCache$ = forkJoin({
-        summaryDto: this.getSummaryDto(),
-        alertRanking: this.getAlertRanking(),
-      }).pipe(
-        map(({ summaryDto, alertRanking }) => ({
-          branchRisk: mapBranchRiskFromSummary(summaryDto),
-          alertRanking,
-        })),
-        shareReplay(1),
-      );
-    }
-    return this.analyticsCache$;
-  }
-
-  /** Invalida ambos cachés para forzar re-fetch en la próxima visita. */
-  invalidateCache(): void {
-    this.viewCache$ = null;
-    this.analyticsCache$ = null;
-  }
 
   getSummary(): Observable<DashboardSummary> {
     return this.getSummaryDto().pipe(map(mapDashboardSummaryFromApi));
@@ -92,23 +49,55 @@ export class DashboardService {
 
   getTopRiskClaims(limit = 10): Observable<TopRiskClaim[]> {
     return this.http
-      .get<ClaimApiDto[]>(API_ENDPOINTS.risk.topClaims, { limit })
-      .pipe(map((claims) => claims.map(mapTopRiskClaimFromApi)));
+      .get<ClaimListItemApiDto[]>(API_ENDPOINTS.risk.topClaims, { limit })
+      .pipe(map((claims) => (claims ?? []).map(mapTopRiskClaimFromApi)));
   }
 
   getProvidersRanking(limit = 10): Observable<ProviderRankingItem[]> {
     return this.http
-      .get<ProviderDashboardApiDto>(API_ENDPOINTS.analytics.providers, { limit })
-      .pipe(map((response) => response.items.map((item: ProviderRankingApiDto) => mapProviderRankingFromApi(item))));
+      .get<ProviderDashboardSummaryApiDto | ProviderRankingApiDto[]>(API_ENDPOINTS.analytics.providers, { limit })
+      .pipe(
+        map((response) => {
+          const items = Array.isArray(response) ? response : response.items ?? [];
+          return items.map(mapProviderRankingFromApi);
+        }),
+      );
   }
 
   getAlertRanking(limit = 10): Observable<AlertRankingItem[]> {
     return this.http
-      .get<AlertDashboardApiDto>(API_ENDPOINTS.analytics.alerts, { limit })
-      .pipe(map((response) => response.items.map((item: AlertRankingApiDto) => mapAlertRankingFromApi(item))));
+      .get<AlertDashboardSummaryApiDto | AlertRankingApiDto[]>(API_ENDPOINTS.analytics.alerts, { limit })
+      .pipe(
+        map((response) => {
+          const items = Array.isArray(response) ? response : response.items ?? [];
+          return items.map(mapAlertRankingFromApi);
+        }),
+      );
+  }
+
+  getReviewStatus(): Observable<ReviewStatusItem[]> {
+    return this.http
+      .get<ReviewStatusItemApiDto[]>(API_ENDPOINTS.analytics.reviewStatus)
+      .pipe(map((items) => (items ?? []).map(mapReviewStatusFromApi)));
+  }
+
+  getBranches(): Observable<BranchRiskItem[]> {
+    return this.http
+      .get<BranchCountItemApiDto[]>(API_ENDPOINTS.analytics.branches)
+      .pipe(map((items) => (items ?? []).map(mapBranchCountFromApi)));
+  }
+
+  getCities(): Observable<CityAlertItem[]> {
+    return this.http
+      .get<CityCountItemApiDto[]>(API_ENDPOINTS.analytics.cities)
+      .pipe(map((items) => (items ?? []).map(mapCityCountFromApi)));
   }
 
   private getSummaryDto(): Observable<DashboardSummaryApiDto> {
-    return this.http.get<DashboardSummaryApiDto>(API_ENDPOINTS.analytics.summary);
+    if (!this.summaryDto$) {
+      this.summaryDto$ = this.http.get<DashboardSummaryApiDto>(API_ENDPOINTS.analytics.summary).pipe(shareReplay(1));
+    }
+
+    return this.summaryDto$;
   }
 }

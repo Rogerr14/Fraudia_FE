@@ -1,13 +1,20 @@
-import { Component, signal } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AppButtonComponent } from '../../../../shared/components/button/app-button.component';
 import { FileUploadComponent } from '../../../../shared/components/file-upload/file-upload.component';
 import { AppCardComponent } from '../../../../shared/components/card/app-card.component';
+import { EmptyStateComponent } from '../../../../shared/components/empty-state/empty-state.component';
+import { LoadingSpinnerComponent } from '../../../../shared/components/loading-spinner/loading-spinner.component';
 import { NotificationService } from '../../../../core/services/notification.service';
 import { ScoringService } from '../../../claims/services/scoring.service';
 import { UploadService } from '../../services/upload.service';
-import { UploadDatasetResponse } from '../../models/upload.model';
+import {
+  BatchAssessmentResult,
+  ImportSummary,
+  UploadDatasetResponse,
+  UploadError,
+} from '../../models/upload.model';
 import { UploadSummaryComponent } from '../../components/upload-summary/upload-summary.component';
 import { UploadErrorsComponent } from '../../components/upload-errors/upload-errors.component';
 
@@ -19,6 +26,8 @@ import { UploadErrorsComponent } from '../../components/upload-errors/upload-err
     FormsModule,
     AppButtonComponent,
     AppCardComponent,
+    EmptyStateComponent,
+    LoadingSpinnerComponent,
     FileUploadComponent,
     UploadSummaryComponent,
     UploadErrorsComponent,
@@ -33,15 +42,13 @@ import { UploadErrorsComponent } from '../../components/upload-errors/upload-err
         </div>
       </header>
 
-      <!-- Upload card -->
       <div class="upload-card app-card">
-
         <div class="upload-card__header">
           <div class="upload-card__header-icon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <ellipse cx="12" cy="5" rx="9" ry="3"/>
-              <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
-              <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+              <ellipse cx="12" cy="5" rx="9" ry="3" />
+              <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+              <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
             </svg>
           </div>
           <div>
@@ -51,19 +58,17 @@ import { UploadErrorsComponent } from '../../components/upload-errors/upload-err
         </div>
 
         <div class="upload-card__body">
-
-          <!-- Left: settings -->
           <div class="upload-card__settings">
             <label class="field">
-              <span>Formato del archivo</span>
+              <span>Dataset</span>
               <select [(ngModel)]="datasetType">
                 <option value="auto">Detectar automáticamente</option>
-                <option value="siniestros">Siniestros</option>
-                <option value="polizas">Pólizas</option>
-                <option value="asegurados">Asegurados</option>
-                <option value="proveedores">Proveedores</option>
-                <option value="vehiculos">Vehículos</option>
-                <option value="documentos">Documentos</option>
+                <option value="claims">Siniestros</option>
+                <option value="policies">Pólizas</option>
+                <option value="insureds">Asegurados</option>
+                <option value="providers">Proveedores</option>
+                <option value="vehicles">Vehículos</option>
+                <option value="documents">Documentos</option>
               </select>
             </label>
 
@@ -82,7 +87,6 @@ import { UploadErrorsComponent } from '../../components/upload-errors/upload-err
             </div>
           </div>
 
-          <!-- Right: dropzone -->
           <div class="upload-card__dropzone">
             <app-file-upload
               [maxFileSize]="52428800"
@@ -90,7 +94,6 @@ import { UploadErrorsComponent } from '../../components/upload-errors/upload-err
               (fileCleared)="onFileCleared()"
             ></app-file-upload>
           </div>
-
         </div>
 
         <div class="upload-card__actions">
@@ -105,34 +108,88 @@ import { UploadErrorsComponent } from '../../components/upload-errors/upload-err
 
         <div class="upload-card__footer">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
           </svg>
           <span>Transferencia cifrada · los datos no se almacenan en texto plano</span>
         </div>
       </div>
 
-      <!-- Results -->
       <app-card *ngIf="uploadResult() as result" title="Resumen de carga" eyebrow="Resultado del procesamiento">
         <app-upload-summary [result]="result"></app-upload-summary>
         <app-upload-errors [errors]="result.errors"></app-upload-errors>
+
         <div class="actions-row">
           <app-button
-            label="Ejecutar evaluación batch"
+            *ngIf="result.id && result.status !== 'FAILED' && result.validRows > 0"
+            label="Analizar dataset"
             variant="success"
-            [loading]="evaluatingBatch()"
-            loadingLabel="Evaluando..."
-            (pressed)="runBatchAssessment(result)"
+            [loading]="evaluatingImportId() === result.id"
+            loadingLabel="Analizando..."
+            (pressed)="runImportAssessment(result)"
           ></app-button>
         </div>
+
+        <app-card *ngIf="assessmentResult()" title="Resultado del análisis" eyebrow="Resumen batch">
+          <div class="metric-grid metric-grid--compact">
+            <article class="metric-card"><span>Procesadas</span><strong>{{ assessmentResult()?.processed }}</strong></article>
+            <article class="metric-card metric-card--green"><span>Verdes</span><strong>{{ assessmentResult()?.greenCount }}</strong></article>
+            <article class="metric-card metric-card--yellow"><span>Amarillas</span><strong>{{ assessmentResult()?.yellowCount }}</strong></article>
+            <article class="metric-card metric-card--red"><span>Rojas</span><strong>{{ assessmentResult()?.redCount }}</strong></article>
+          </div>
+        </app-card>
+      </app-card>
+
+      <app-card title="Historial de imports" eyebrow="Datasets procesados">
+        <app-loading-spinner *ngIf="loadingImports()" message="Cargando imports"></app-loading-spinner>
+
+        <app-empty-state
+          *ngIf="!loadingImports() && imports().length === 0"
+          title="No hay imports registrados"
+          message="Carga un dataset para iniciar el análisis."
+        ></app-empty-state>
+
+        <div *ngIf="!loadingImports() && imports().length > 0" class="stack-list">
+          <article *ngFor="let item of imports()" class="stack-list__item">
+            <div>
+              <strong>{{ item.fileName }}</strong>
+              <span>{{ item.dataset || 'Dataset general' }} · {{ item.validRows }}/{{ item.totalRows }} válidas</span>
+              <p>{{ item.message }}</p>
+            </div>
+
+            <div class="stack-list__meta">
+              <strong>{{ item.status }}</strong>
+              <span>Inválidas: {{ item.invalidRows }}</span>
+              <div class="actions-row">
+                <app-button label="Ver errores" size="sm" variant="ghost" (pressed)="viewErrors(item)"></app-button>
+                <app-button
+                  *ngIf="item.status !== 'FAILED' && item.validRows > 0"
+                  label="Analizar dataset"
+                  size="sm"
+                  variant="secondary"
+                  [loading]="evaluatingImportId() === item.id"
+                  (pressed)="runImportAssessment(item)"
+                ></app-button>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <app-upload-errors *ngIf="selectedErrors().length > 0" [errors]="selectedErrors()"></app-upload-errors>
       </app-card>
     </section>
   `,
 })
-export class UploadDatasetPageComponent {
+export class UploadDatasetPageComponent implements OnInit {
+  private readonly importErrorsCache = new Map<string, UploadError[]>();
+
   selectedFile = signal<File | null>(null);
   uploadResult = signal<UploadDatasetResponse | null>(null);
+  imports = signal<ImportSummary[]>([]);
+  selectedErrors = signal<UploadError[]>([]);
+  assessmentResult = signal<BatchAssessmentResult | null>(null);
   uploading = signal(false);
-  evaluatingBatch = signal(false);
+  loadingImports = signal(true);
+  evaluatingImportId = signal<string | null>(null);
   datasetType = 'auto';
 
   constructor(
@@ -141,38 +198,115 @@ export class UploadDatasetPageComponent {
     private notificationService: NotificationService,
   ) {}
 
+  ngOnInit(): void {
+    this.loadImports();
+  }
+
   onFileSelected(file: File): void {
     this.selectedFile.set(file);
     this.uploadResult.set(null);
+    this.assessmentResult.set(null);
+    this.selectedErrors.set([]);
   }
 
   onFileCleared(): void {
     this.selectedFile.set(null);
     this.uploadResult.set(null);
+    this.assessmentResult.set(null);
+    this.selectedErrors.set([]);
   }
 
   uploadDataset(): void {
     const file = this.selectedFile();
-    if (!file) return;
+    if (!file) {
+      return;
+    }
+
     this.uploading.set(true);
     this.uploadService.uploadDataset(file, this.datasetType).subscribe({
       next: (result) => {
         this.uploadResult.set(result);
+        this.upsertImport(result);
+        this.selectedErrors.set(result.errors);
         this.uploading.set(false);
+
+        if (result.status === 'FAILED') {
+          this.notificationService.error(result.message);
+          return;
+        }
+
         this.notificationService.success('Dataset cargado correctamente.');
       },
       error: () => this.uploading.set(false),
     });
   }
 
-  runBatchAssessment(result: UploadDatasetResponse): void {
-    this.evaluatingBatch.set(true);
-    this.scoringService.confirmImportedDatasetAssessment(result.createdAssessments).subscribe({
+  viewErrors(item: ImportSummary): void {
+    if (item.failedRows === 0) {
+      this.selectedErrors.set([]);
+      this.notificationService.info('Este import no registra errores.');
+      return;
+    }
+
+    const cachedErrors = this.importErrorsCache.get(item.id);
+    if (cachedErrors) {
+      this.selectedErrors.set(cachedErrors);
+      return;
+    }
+
+    this.uploadService.getImportErrors(item.id).subscribe({
+      next: (errors) => {
+        this.importErrorsCache.set(item.id, errors);
+        this.selectedErrors.set(errors);
+      },
+    });
+  }
+
+  runImportAssessment(item: ImportSummary): void {
+    this.evaluatingImportId.set(item.id);
+    this.scoringService.assessImportedDataset(item.id).subscribe({
       next: (response) => {
-        this.evaluatingBatch.set(false);
+        this.assessmentResult.set(response);
+        this.evaluatingImportId.set(null);
+        this.applyAssessmentResult(item.id, response);
         this.notificationService.success(response.message);
       },
-      error: () => this.evaluatingBatch.set(false),
+      error: () => this.evaluatingImportId.set(null),
     });
+  }
+
+  private loadImports(): void {
+    this.loadingImports.set(true);
+    this.uploadService.listImports().subscribe({
+      next: (response) => {
+        this.imports.set(response.items);
+        this.loadingImports.set(false);
+      },
+      error: () => this.loadingImports.set(false),
+    });
+  }
+
+  private upsertImport(item: ImportSummary): void {
+    this.imports.update((items) => {
+      const nextItems = items.filter((current) => current.id !== item.id);
+      return [item, ...nextItems];
+    });
+  }
+
+  private applyAssessmentResult(importId: string, result: BatchAssessmentResult): void {
+    this.imports.update((items) =>
+      items.map((item) =>
+        item.id === importId
+          ? {
+              ...item,
+              status: result.processed > 0 ? 'ASSESSED' : item.status,
+              message: result.message,
+              greenCount: result.greenCount,
+              yellowCount: result.yellowCount,
+              redCount: result.redCount,
+            }
+          : item,
+      ),
+    );
   }
 }

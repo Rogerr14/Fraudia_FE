@@ -30,8 +30,8 @@ import { ChatMessageComponent } from '../../../features/agent/components/chat-me
         <div class="chat-widget__header-info">
           <div class="chat-widget__avatar">IA</div>
           <div>
-            <strong>Asistente IA — Siniestros</strong>
-            <small><span class="chat-status-dot"></span> En línea · responde al instante</small>
+            <strong>Asistente IA - Siniestros</strong>
+            <small><span class="chat-status-dot"></span> En línea · apoyo a revisión humana</small>
           </div>
         </div>
         <button class="chat-widget__close" type="button" aria-label="Cerrar" (click)="toggleOpen()">
@@ -46,23 +46,24 @@ import { ChatMessageComponent } from '../../../features/agent/components/chat-me
         <div *ngIf="messages().length === 0" class="chat-widget__welcome">
           <div class="chat-message">
             <div>
-              <p>¡Hola! Soy tu asistente de siniestros 🤖. Puedo ayudarte a reportar un siniestro, consultar el estado de tu póliza o hacer seguimiento a un reclamo existente.</p>
-              <p style="margin: 8px 0 0">¿En qué puedo ayudarte hoy?</p>
+              <p>Hola. Puedo ayudarte a revisar alertas, explicaciones y prioridades del caso.</p>
+              <p style="margin: 8px 0 0">¿Qué necesitas analizar?</p>
             </div>
           </div>
+
           <div class="chat-widget__quick-actions" *ngIf="suggestedQuestions().length">
             <button
-              *ngFor="let q of suggestedQuestions().slice(0, 4)"
+              *ngFor="let item of suggestedQuestions().slice(0, 4)"
               class="chat-widget__quick-btn"
               type="button"
-              (click)="sendQuestion(q.question)"
+              (click)="sendQuestion(item.question)"
             >
-              {{ q.question }}
+              {{ item.question }}
             </button>
           </div>
         </div>
 
-        <app-chat-message *ngFor="let msg of messages()" [message]="msg"></app-chat-message>
+        <app-chat-message *ngFor="let message of messages()" [message]="message"></app-chat-message>
 
         <div *ngIf="loading()" class="chat-widget__typing">
           <span></span><span></span><span></span>
@@ -71,11 +72,7 @@ import { ChatMessageComponent } from '../../../features/agent/components/chat-me
 
       <footer class="chat-widget__footer">
         <form [formGroup]="form" (ngSubmit)="submit()">
-          <input
-            formControlName="question"
-            placeholder="Escribe tu consulta..."
-            autocomplete="off"
-          />
+          <input formControlName="question" placeholder="Escribe tu consulta..." autocomplete="off" />
           <button type="submit" [disabled]="form.invalid || loading()" aria-label="Enviar">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <line x1="22" y1="2" x2="11" y2="13"></line>
@@ -107,28 +104,32 @@ export class ChatWidgetComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.agentService.getSuggestedQuestions().subscribe((q) => this.suggestedQuestions.set(q));
+    this.agentService.getSuggestedQuestions().subscribe((questions) => this.suggestedQuestions.set(questions));
   }
 
   toggleOpen(): void {
-    this.isOpen.update((v) => !v);
+    this.isOpen.update((value) => !value);
   }
 
   submit(): void {
-    if (this.form.invalid) return;
+    if (this.form.invalid) {
+      return;
+    }
+
     const question = this.form.getRawValue().question.trim();
     this.form.reset({ question: '' });
     this.sendQuestion(question);
   }
 
   sendQuestion(question: string): void {
-    const userMsg: ChatMessage = {
+    const userMessage: ChatMessage = {
       id: `${Date.now()}-${Math.random()}`,
       role: 'user',
       content: question,
       createdAt: new Date(),
     };
-    this.messages.update((msgs) => [...msgs, userMsg]);
+
+    this.messages.update((messages) => [...messages, userMessage]);
     this.loading.set(true);
     this.scrollToBottom();
 
@@ -139,13 +140,13 @@ export class ChatWidgetComponent implements OnInit {
     this.agentService.query(request).subscribe({
       next: (response) => {
         this.sessionId = response.sessionId ?? this.sessionId;
-        this.messages.update((msgs) => [
-          ...msgs,
+        this.messages.update((messages) => [
+          ...messages,
           {
             id: `${Date.now()}-${Math.random()}`,
             role: 'assistant',
             content: response.answer,
-            relatedData: response.relatedData,
+            sources: response.sources,
             createdAt: new Date(),
           },
         ]);

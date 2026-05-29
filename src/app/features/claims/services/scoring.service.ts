@@ -1,44 +1,44 @@
 import { Injectable } from '@angular/core';
-import { Observable, forkJoin, of } from 'rxjs';
+import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-import { BatchAssessmentResult } from '../../uploads/models/upload.model';
+import { API_ENDPOINTS } from '../../../core/constants/api-endpoints';
+import { HttpClientService } from '../../../core/services/http-client.service';
+import { BatchAssessmentResult, mapBatchAssessmentFromApi } from '../../uploads/models/upload.model';
 import { ClaimScore } from '../models/claim.model';
-import { ClaimsService } from './claims.service';
+import { ClaimAssessmentRequest, ClaimsService } from './claims.service';
 
-export interface BatchAssessmentRequest {
-  claimIds: string[];
-}
+export interface BatchAssessmentRequest extends ClaimAssessmentRequest {}
 
 @Injectable({
   providedIn: 'root',
 })
 export class ScoringService {
-  constructor(private claimsService: ClaimsService) {}
+  constructor(
+    private claimsService: ClaimsService,
+    private http: HttpClientService,
+  ) {}
 
   evaluateClaim(claimId: string): Observable<ClaimScore> {
     return this.claimsService.evaluateClaim(claimId);
   }
 
-  evaluateBatch(request: BatchAssessmentRequest): Observable<BatchAssessmentResult> {
-    if (request.claimIds.length === 0) {
-      return of({
-        processed: 0,
-        message: 'No hay siniestros para evaluar.',
-      });
-    }
-
-    return forkJoin(request.claimIds.map((claimId) => this.evaluateClaim(claimId))).pipe(
-      map((scores) => ({
-        processed: scores.length,
-        message: 'Evaluación batch finalizada correctamente.',
-      }))
-    );
+  evaluateBatch(request: Partial<BatchAssessmentRequest> = {}): Observable<BatchAssessmentResult> {
+    return this.http
+      .post<unknown>(API_ENDPOINTS.risk.assessAll, {
+        include_ai_model: request.includeAiModel ?? true,
+        include_nlp: request.includeNlp ?? true,
+        force_recalculate: request.forceRecalculate ?? true,
+      })
+      .pipe(map((response) => mapBatchAssessmentFromApi(response)));
   }
 
-  confirmImportedDatasetAssessment(processed: number): Observable<BatchAssessmentResult> {
-    return of({
-      processed,
-      message: 'El backend evaluó los siniestros durante la carga del dataset.',
-    });
+  assessImportedDataset(importId: string, request: Partial<BatchAssessmentRequest> = {}): Observable<BatchAssessmentResult> {
+    return this.http
+      .post<unknown>(API_ENDPOINTS.uploads.assess(importId), {
+        include_ai_model: request.includeAiModel ?? true,
+        include_nlp: request.includeNlp ?? true,
+        force_recalculate: request.forceRecalculate ?? true,
+      })
+      .pipe(map((response) => mapBatchAssessmentFromApi(response)));
   }
 }

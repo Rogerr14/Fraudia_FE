@@ -10,12 +10,20 @@ export interface AppNotification {
   duration?: number;
 }
 
+export interface AppErrorDialog {
+  title: string;
+  message: string;
+}
+
 @Injectable({
   providedIn: 'root',
 })
 export class NotificationService {
   private notificationsSubject = new BehaviorSubject<AppNotification[]>([]);
+  private errorDialogSubject = new BehaviorSubject<AppErrorDialog | null>(null);
+
   readonly notifications$: Observable<AppNotification[]> = this.notificationsSubject.asObservable();
+  readonly errorDialog$: Observable<AppErrorDialog | null> = this.errorDialogSubject.asObservable();
 
   show(message: string, type: NotificationType = 'info', duration = 5000): void {
     const notification: AppNotification = {
@@ -40,7 +48,14 @@ export class NotificationService {
   }
 
   error(message: string, duration?: number): void {
-    this.show(message, 'error', duration ?? 7000);
+    this.errorDialogSubject.next({
+      title: 'No se pudo completar la acción',
+      message,
+    });
+
+    if (duration && duration > 0) {
+      this.show(message, 'error', duration);
+    }
   }
 
   info(message: string, duration?: number): void {
@@ -53,10 +68,15 @@ export class NotificationService {
 
   remove(id: string): void {
     const current = this.notificationsSubject.value;
-    this.notificationsSubject.next(current.filter((n) => n.id !== id));
+    this.notificationsSubject.next(current.filter((notification) => notification.id !== id));
+  }
+
+  closeErrorDialog(): void {
+    this.errorDialogSubject.next(null);
   }
 
   clear(): void {
     this.notificationsSubject.next([]);
+    this.errorDialogSubject.next(null);
   }
 }
